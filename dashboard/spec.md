@@ -1,111 +1,187 @@
-# ForgeOS Lens — UI spec
+# ForgeOS Lens — UI spec (v2: Mission Control style)
 
-This is the contract the **forgeos-lens-builder** agent works against. When
-it's unclear about a choice it asks the human via A2H; otherwise it iterates
-opencode + `pnpm build` until the view in question renders and a PR is open.
+This is the contract the agents work against. The previous v1 spec
+(OpenLens-style sidebar) shipped — see PR #1 / commit `473b5d4`. This v2
+spec **replaces** it with the **Mission Control** visual style and a new
+data model: the UI executes `forgeos` CLI commands directly via the Tauri
+shell-out plumbing, with **contexts** managed from inside the UI itself.
 
 ## North star
 
-OpenLens-style desktop client for ForgeOS:
+GitHub-issue-tracker-meets-htop. Dense, monospace, dark, every pixel
+informative. No marketing chrome.
 
-- One window, dark theme by default.
-- Sidebar (left) for navigation.
-- Main pane (right) renders the selected view.
-- Status bar (bottom) shows current `forgeos` context + connection state.
-- No login flow; the app is single-user, local-first. It talks to the
-  `forgeos` CLI (Rust) via a `Command` shell-out for now, with a one-shot
-  JSON stdout contract per call (see *Data sources* below).
+## Visual tokens (Tailwind extends — see Mission Control's tailwind.config.js for the source of truth)
 
-## Stack
+```js
+colors: {
+  bg: "#0d1117", surface: "#161b22", border: "#30363d",
+  text: "#c9d1d9", dim: "#8b949e", bright: "#f0f6fc",
+  ok: "#3fb950", danger: "#f85149", warn: "#d29922", info: "#58a6ff",
+  orange: "#db6d28", purple: "#bc8cff", cyan: "#39d353", pink: "#f778ba",
+}
+fontFamily.mono: ["SF Mono", "Cascadia Code", "Fira Code", "monospace"]
+borderRadius: { lg: "6px", md: "4px", sm: "3px" }
+body: 12px base, monospace, bg-bg text-text, overflow-hidden
+```
 
-- **Shell**: Tauri 2 (Rust). Two-window app no; just one main window.
-- **Frontend**: Vite + React + TypeScript + Tailwind. State via Zustand
-  (light) or Jotai — agent chooses, asking human if it has a strong
-  preference. Use shadcn/ui for primitives.
-- **Build**: `pnpm` (agent must use pnpm, not npm or bun, per project
-  preference — confirmed by initial A2H question).
+shadcn primitives, dark-theme-only. No light mode.
 
-## Sidebar groups (in order)
+## App layout
 
-1. **Cluster** — Health snapshot. Connection status to the platform. Active
-   `forgeos` context name. Version of the connected platform.
-2. **Workloads** — One link per:
-   - `Agents` — Table of deployed agents (name, namespace, stack, status,
-     last run). Click an agent to open its detail panel (right pane).
-   - `Runs` — Recent invocations across all agents. Filter by agent, by
-     status, by time window.
-3. **Governance**
-   - `Approvals` — Pending A2H approval requests. Approve / reject inline.
-   - `Questions` — Pending A2H text/choice questions. Inline text input
-     submits to `forgeos answer <id> --text "…"`.
-4. **Logs** — Live tail of agent invocations. Filterable by agent_id.
-5. **Contexts** — kubectl-style context list. Switch between local /
-   Cloud Run / staging. Settings stored at `~/.forgeos/config.yaml`.
+One window. Three regions stacked vertically:
 
-## Agent detail panel
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ TOP BAR    forgeos:cloud-run · v0.1.0 · ok           [context ▼]    │  24px
+├─────────────────────────────────────────────────────────────────────┤
+│ TABS    Fleet   Governance   Logs   Topology   MCP   Manifest       │  32px
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  active tab content                                                 │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
-When clicking on an agent in the table:
+The top-right context dropdown lists every entry in `~/.forgeos/config.yaml`
+contexts and switching it writes `current_context: <name>` back to that
+file (via Tauri's fs plugin). The bottom bar shows latency to the active
+context's API.
 
-- Header: agent name, namespace, stack badge, status pill.
-- Tabs: Overview · Tools · Recent runs · A2H · Logs · Raw manifest.
-- Overview: schedule, LLM (model + provider), tools count, budget caps,
-  A2A ACLs, owner.
-- Tools: list of allowed tool names with descriptions.
-- Recent runs: last 20 invocations with prompt preview + output preview +
-  duration + token count. Click a row to expand.
-- A2H: pending + recently resolved requests originated by this agent.
-- Logs: streaming, filterable by severity.
-- Raw manifest: the deploy_request JSON, monospace.
+## Tabs (mirror Mission Control's tab set as closely as possible)
 
-## Data sources (CLI shell-out contract)
+### Fleet
+- A `Table` (shadcn) with rows for each deployed agent.
+- Columns: `PHASE` (colored badge), `NAME` (truncated to 24c), `STACK`
+  badge, `TYPE`, `MODEL`, `LAST_RUN_AGO`, `TOKENS_24H`, actions.
+- Above the table: a `FleetBar` strip with running/idle/failed counts as
+  fat colored pills. Mirror Mission Control's `<FleetBar />`.
+- Row click → opens a right-side detail sheet (`<AgentDetailSheet />`)
+  with tabs: Overview · Recent runs · Tools · Manifest · Raw JSON.
+- Top-right of the table: `[+ Upload manifest]` button → file picker →
+  shells out `forgeos deploy <path>`.
+
+### Governance
+- Two panels side by side: `PENDING APPROVALS` and `RECENT AUDIT EVENTS`.
+- Approvals: list of A2H requests with the question, agent, age, and
+  `[Approve]` / `[Reject]` / `[Reply…]` buttons. The reply opens a small
+  inline `<Textarea>` and shells out `forgeos answer <id> --text "…"`.
+- Audit: virtualized list, most-recent first, color by severity, filterable
+  by `action` / `resource_type` / `agent_id`.
+
+### Logs (new — required by the spec change)
+- An `<AgentSelector>` at the top — searchable combobox of all deployed
+  agents.
+- Below it, a streaming log view that shells out
+  `forgeos logs <agent_id> --follow --json` and renders each event as a
+  monospace line, colored by `kind` (cyan started / green completed /
+  red failed / yellow tool / dim other).
+- Auto-scrolls when at the bottom; pauses scroll when the user scrolls up.
+- Top-right buttons: `[Clear]` `[Copy]` `[Pause]`.
+- Optional filter chips: `runs only` · `tool calls only` · `errors only`.
+
+### Topology
+- Static for v1: read the agents list and draw a force-directed graph
+  where edges are `agent__call` relationships extracted from manifest
+  `metadata` (orchestrator → builder, builder → tester, etc.). Use
+  `react-force-graph-2d` or similar small lib.
+- Nodes colored by phase (idle/running/failed). Edge animation on a
+  pulse when a fresh `tool.call agent__call` audit event for that edge
+  arrives.
+
+### MCP
+- For v1, just a static list of MCP servers configured on the platform
+  with their connection status. Reads `GET /api/mcp/servers`.
+
+### Manifest
+- A YAML editor (use Monaco) initialized from the selected agent's
+  `to_dict()`, with a `[Reapply]` button that shells out
+  `forgeos deploy <tmpfile>` after writing the buffer.
+
+## Data sources (CLI shellout contract)
+
+Every view goes through the Tauri `Command` API to invoke the **already-installed**
+`forgeos` binary (3.5MB native Rust, comes with the app or is found on
+$PATH). The shell-out wrapper lives at `src/lib/forgeos.ts` and exposes a
+single function `runForgeos<T>(args: string[]): Promise<T>` that:
+
+1. Spawns `forgeos --context <current> <args>`.
+2. Captures stdout (JSON if applicable) and stderr.
+3. Returns `{ok, stdout, stderr, code, parsed?: T}` where `parsed` is
+   `JSON.parse(stdout)` when stdout starts with `{` or `[`.
+
+Mapping:
 
 | View | Command |
 | --- | --- |
-| Sidebar status | `forgeos health` → `{ok, agents, version}` |
-| Agents list | `forgeos list --json` |
-| Agent detail | `forgeos describe <id>` (new verb — see TODOs) |
-| Invoke | `forgeos invoke <id> "<prompt>"` (streamed) |
-| Approvals list | `forgeos approvals list --json` |
-| Approve / reject | `forgeos approvals {approve\|reject} <id>` |
-| Questions list | `forgeos a2h pending --kind text,choice --json` |
-| Answer | `forgeos answer <id> --text "<text>"` |
-| Contexts list | `forgeos config get-contexts` |
+| Fleet list | `forgeos list --json` (new flag — agents emit JSON when present) |
+| Agent detail | `forgeos describe <id>` (new verb) |
+| Recent runs | `forgeos runs <id> --limit 20 --json` (new verb) |
+| Logs streaming | `forgeos logs <id> --follow --json` |
+| Approvals list | `forgeos approvals list --json` (already exists, drop --short footer) |
+| Approve / reject | `forgeos approvals approve <id>` |
+| Freeform answer | `forgeos answer <id> --text "..."` |
+| Deploy / undeploy | `forgeos deploy <yaml>` / `forgeos undeploy <id>` |
+| Context list | `forgeos config get-contexts --json` (new flag) |
+| Context switch | `forgeos config use-context <name>` |
+| Health | `forgeos health` |
 
-If any of these commands don't exist yet, the agent should open a PR that
-adds them in parallel with the UI — never assume a missing endpoint.
+If any new flags or verbs are missing, **open a separate PR on this repo
+that documents the CLI gap** so the operator can land the Rust change.
+Don't fake them in the UI.
 
-## Visual
+## TODOs (each is one PR via the orchestrator → builder → tester loop)
 
-- Background `#0f172a` (slate-900).
-- Sidebar `#1e293b` (slate-800). Active link underline in `#22d3ee`
-  (cyan-400) and bold text.
-- Cards radius 8px, border `#334155` (slate-700), padding 16.
-- Monospace font (JetBrains Mono) inside raw-manifest and logs views;
-  Inter elsewhere.
-- Status colors: green for OK, amber for warning, red for failed, gray
-  for unknown.
+For each TODO the orchestrator should pick the smallest atomic ship that
+keeps the build green. **TODO #1 is shipped (PR #1).** Drop it from the
+backlog.
 
-## TODOs that the agent should track as separate PRs
+- [ ] **#2 — Tailwind palette + global shell:** Replace the v1 sidebar
+      layout with the MC top-bar + tabs + content shell. Wire the
+      tailwind tokens above. Routes are tabs, not router pages.
+- [ ] **#3 — `runForgeos<T>` helper + connection toast:** Implement the
+      shell-out wrapper. On first paint, run `forgeos health` and show
+      a top-right toast (ok = green dot, error = red banner).
+- [ ] **#4 — Context dropdown:** Reads
+      `forgeos config get-contexts --json` (add the flag if needed),
+      shows them in a `<Select>`, switching shells out
+      `forgeos config use-context <name>` and reloads the active query.
+- [ ] **#5 — Fleet tab:** FleetBar + table per spec. Click → sheet stub
+      (just title + close, more later).
+- [ ] **#6 — Agent detail sheet — Overview tab:** Reads
+      `forgeos describe <id>` (or `forgeos list --json` + filter when
+      describe doesn't exist yet). Show schedule, model, tool count,
+      last run timestamp.
+- [ ] **#7 — Logs tab with --follow streaming:** This is the user's
+      whole motivation. Spawn the long-running `forgeos logs --follow`
+      child process; pipe stdout line-by-line into a Zustand log store.
+      Make sure the process is killed on agent switch / tab unmount /
+      window close.
+- [ ] **#8 — Governance tab:** Approvals + audit panels. Wire approve /
+      reject / answer.
+- [ ] **#9 — Topology tab:** Force-directed graph.
+- [ ] **#10 — MCP tab:** Static list.
+- [ ] **#11 — Manifest tab with Monaco + Reapply.**
+- [ ] **#12 — Polish:** keyboard shortcuts (cmd+1..9 for tabs, / for
+      search), command palette (cmd+k).
 
-Each of these is its own opencode pass → PR:
+## Out of scope (don't build)
 
-1. Tauri shell + main window + sidebar layout (no real data, mocks
-   everywhere).
-2. CLI shell-out plumbing — a `useForgeos<Cmd, Out>()` hook that runs the
-   command and parses stdout JSON. Pipe errors to a toast.
-3. Agents list view.
-4. Agent detail panel: Overview tab only.
-5. Approvals + Questions tabs (Governance).
-6. Logs streaming.
-7. Contexts switcher.
-8. Polish: keyboard shortcuts, search across agents, command palette.
+- Light theme.
+- Multi-window / multi-context-at-once.
+- Editing agents from inside topology view.
+- Writing agent code from inside the UI (that's what the builder agent
+  is for).
+- Mobile / responsive.
 
-Each PR's commit history should be `feat(<area>): …` so the changelog is
-self-documenting.
+## Hard rules for the building agents
 
-## Out of scope (don't build these yet)
-
-- Multi-user / SSO.
-- Writing agent manifests in-UI (use the YAML editor pattern only later).
-- Direct Kubernetes integration (forgeos handles that already).
-- Mobile / responsive — desktop only.
+- Do not invent CLI verbs/flags. If you need one, open a side PR on this
+  repo describing the gap.
+- Do not bake the bearer token into the UI bundle — it stays in
+  `~/.forgeos/config.yaml`, the CLI reads it on every shell-out.
+- All long-running child processes (logs --follow) must register a
+  cleanup handler on unmount/close.
+- pnpm only (not npm/bun).
+- Every PR title is `feat(<area>): <one-line>` — the orchestrator
+  reads PR history to dedupe.
