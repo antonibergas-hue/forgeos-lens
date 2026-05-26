@@ -1,0 +1,31 @@
+{
+  "$schema": "../node_modules/.pnpm/@tauri-apps+cli@2.11.2/node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "forgeos-lens",
+  "version": "0.1.0",
+  "identifier": "com.antonibergas-hue.forgeoslens",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "security": {
+      "csp": null
+    },
+    "windows": [
+      {
+        "title": "forgeos-lens",
+        "width": 1200,
+        "height": 800,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ]
+  },
+  "bundle": {
+    "icon": [
+      "icons/icon.png"
+    ]
+  }
+}
