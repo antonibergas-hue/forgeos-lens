@@ -1,0 +1,13 @@
+[package]
+name = "forgeos-lens"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+rust-version = "1.65"
+
+[dependencies]
+tauri = { version = "2" }
+
+[build-dependencies]
+tauri-cli = { version = "2" }
+tauri-build = { version = "2" }
