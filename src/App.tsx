@@ -1,136 +1,113 @@
-import React, { useState } from 'react';
-import { 
-  Server, 
-  Box, 
-  Shield, 
-  Activity, 
-  GitBranch 
-} from 'lucide-react';
+import { useState } from "react";
 
-const App = () => {
-  const [activeItem, setActiveItem] = useState('overview');
+// MC-style ForgeOS Lens shell: top bar (context name + status dot) + tab
+// strip + content area. Real data wiring lands in subsequent TODOs (#3+).
+// Spec source: dashboard/spec.md v2.
+
+type TabKey =
+  | "fleet"
+  | "governance"
+  | "logs"
+  | "topology"
+  | "mcp"
+  | "manifest";
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "fleet", label: "Fleet" },
+  { key: "governance", label: "Governance" },
+  { key: "logs", label: "Logs" },
+  { key: "topology", label: "Topology" },
+  { key: "mcp", label: "MCP" },
+  { key: "manifest", label: "Manifest" },
+];
+
+export default function App() {
+  const [tab, setTab] = useState<TabKey>("fleet");
+  // Placeholder; real read of ~/.forgeos/config.yaml comes in TODO #4.
+  const contextName = "cloud-run";
+  const ok = true;
 
   return (
-    <div className="flex h-screen bg-slate-900 text-slate-100 font-inter">
-      {/* Sidebar */}
-      <div className="flex-shrink-0 w-64 bg-slate-800 border-r border-slate-700 p-4">
-        <div className="space-y-6">
-          {/* Cluster Group */}
-          <div>
-            <h3 className="font-medium text-slate-400 mb-2">Cluster</h3>
-            <div className="space-y-2">
-              <button 
-                className={`flex items-center w-full text-left transition-all duration-200 ${activeItem === 'overview' ? 'text-slate-100 border-l-4 border-cyan-400' : 'text-slate-300 hover:text-slate-200'}`}
-                onClick={() => setActiveItem('overview')}
-              >
-                <Server className="w-5 h-5 mr-3" />
-                Overview
-              </button>
-              <button 
-                className={`flex items-center w-full text-left transition-all duration-200 ${activeItem === 'nodes' ? 'text-slate-100 border-l-4 border-cyan-400' : 'text-slate-300 hover:text-slate-200 border-b border-slate-700 pb-1'}`}
-                onClick={() => setActiveItem('nodes')}
-              >
-                <Box className="w-5 h-5 mr-3" />
-                Nodes
-              </button>
-            </div>
-          </div>
-          
-          {/* Workloads Group */}
-          <div>
-            <h3 className="font-medium text-slate-400 mb-2">Workloads</h3>
-            <div className="space-y-2">
-              <button 
-                className={`flex items-center w-full text-left transition-all duration-200 ${activeItem === 'pods' ? 'text-slate-100 border-l-4 border-cyan-400' : 'text-slate-300 hover:text-slate-200'}`}
-                onClick={() => setActiveItem('pods')}
-              >
-                <Activity className="w-5 h-5 mr-3" />
-                Pods
-              </button>
-              <button 
-                className={`flex items-center w-full text-left transition-all duration-200 ${activeItem === 'deployments' ? 'text-slate-100 border-l-4 border-cyan-400' : 'text-slate-300 hover:text-slate-200'}`}
-                onClick={() => setActiveItem('deployments')}
-              >
-                <Activity className="w-5 h-5 mr-3" />
-                Deployments
-              </button>
-            </div>
-          </div>
-          
-          {/* Governance Group */}
-          <div>
-            <h3 className="font-medium text-slate-400 mb-2">Governance</h3>
-            <div className="space-y-2">
-              <button 
-                className={`flex items-center w-full text-left transition-all duration-200 ${activeItem === 'policies' ? 'text-slate-100 border-l-4 border-cyan-400' : 'text-slate-300 hover:text-slate-200'}`}
-                onClick={() => setActiveItem('policies')}
-              >
-                <Shield className="w-5 h-5 mr-3" />
-                Policies
-              </button>
-              <button 
-                className={`flex items-center w-full text-left transition-all duration-200 ${activeItem === 'rbac' ? 'text-slate-100 border-l-4 border-cyan-400' : 'text-slate-300 hover:text-slate-200'}`}
-                onClick={() => setActiveItem('rbac')}
-              >
-                <Shield className="w-5 h-5 mr-3" />
-                RBAC
-              </button>
-            </div>
-          </div>
-          
-          {/* Logs Group */}
-          <div>
-            <h3 className="font-medium text-slate-400 mb-2">Logs</h3>
-            <div className="space-y-2">
-              <button 
-                className={`flex items-center w-full text-left transition-all duration-200 ${activeItem === 'logs' ? 'text-slate-100 border-l-4 border-cyan-400' : 'text-slate-300 hover:text-slate-200'}`}
-                onClick={() => setActiveItem('logs')}
-              >
-                <Activity className="w-5 h-5 mr-3" />
-                Logs
-              </button>
-              <button 
-                className={`flex items-center w-full text-left transition-all duration-200 ${activeItem === 'events' ? 'text-slate-100 border-l-4 border-cyan-400' : 'text-slate-300 hover:text-slate-200'}`}
-                onClick={() => setActiveItem('events')}
-              >
-                <Activity className="w-5 h-5 mr-3" />
-                Events
-              </button>
-            </div>
-          </div>
-          
-          {/* Contexts Group */}
-          <div>
-            <h3 className="font-medium text-slate-400 mb-2">Contexts</h3>
-            <div className="space-y-2">
-              <button 
-                className={`flex items-center w-full text-left transition-all duration-200 ${activeItem === 'context1' ? 'text-slate-100 border-l-4 border-cyan-400' : 'text-slate-300 hover:text-slate-200'}`}
-                onClick={() => setActiveItem('context1')}
-              >
-                <GitBranch className="w-5 h-5 mr-3" />
-                Context 1
-              </button>
-              <button 
-                className={`flex items-center w-full text-left transition-all duration-200 ${activeItem === 'context2' ? 'text-slate-100 border-l-4 border-cyan-400' : 'text-slate-300 hover:text-slate-200'}`}
-                onClick={() => setActiveItem('context2')}
-              >
-                <GitBranch className="w-5 h-5 mr-3" />
-                Context 2
-              </button>
-            </div>
-          </div>
+    <div className="h-full flex flex-col bg-bg text-text font-mono">
+      {/* Top bar — 24px */}
+      <header className="h-6 px-3 flex items-center justify-between border-b border-border bg-surface text-xs">
+        <div className="flex items-center gap-2">
+          <span className="text-bright font-semibold">forgeos</span>
+          <span className="text-dim">·</span>
+          <span className="text-dim">{contextName}</span>
         </div>
-      </div>
-      
-      {/* Main Pane */}
-      <div className="flex-1 p-6 overflow-y-auto">
-        <div className="space-y-4">
-          <h1 className="text-2xl font-bold text-slate-100">ForgeOS Lens</h1>
-          <p className="text-slate-400">Welcome to the ForgeOS Lens dashboard. Select an item from the sidebar to begin.</p>
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-block w-2 h-2 rounded-full ${
+              ok ? "bg-ok" : "bg-danger"
+            }`}
+            aria-label={ok ? "ok" : "error"}
+          />
+          <span className={ok ? "text-ok" : "text-danger"}>
+            {ok ? "ok" : "error"}
+          </span>
         </div>
-      </div>
+      </header>
+
+      {/* Tab strip — 32px */}
+      <nav
+        role="tablist"
+        aria-label="Lens tabs"
+        className="h-8 flex items-end border-b border-border bg-surface text-xs"
+      >
+        {TABS.map((t) => {
+          const active = tab === t.key;
+          return (
+            <button
+              key={t.key}
+              role="tab"
+              aria-selected={active}
+              onClick={() => setTab(t.key)}
+              className={[
+                "px-3 h-full flex items-center",
+                "border-b-2 -mb-px",
+                active
+                  ? "border-info text-bright"
+                  : "border-transparent text-dim hover:text-text",
+              ].join(" ")}
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* Content area */}
+      <main className="flex-1 overflow-auto p-4">
+        <TabContent tab={tab} />
+      </main>
     </div>
   );
-};
+}
 
-export default App;
+function TabContent({ tab }: { tab: TabKey }) {
+  // Placeholder content — every tab is wired up in its own subsequent TODO.
+  switch (tab) {
+    case "fleet":
+      return <Placeholder title="Fleet" sub="Deployed agents will render here (TODO #5)." />;
+    case "governance":
+      return <Placeholder title="Governance" sub="Pending approvals + audit (TODO #8)." />;
+    case "logs":
+      return <Placeholder title="Logs" sub="forgeos logs --follow stream (TODO #7)." />;
+    case "topology":
+      return <Placeholder title="Topology" sub="A2A graph (TODO #9)." />;
+    case "mcp":
+      return <Placeholder title="MCP" sub="Connected MCP servers (TODO #10)." />;
+    case "manifest":
+      return <Placeholder title="Manifest" sub="YAML editor + Reapply (TODO #11)." />;
+  }
+}
+
+function Placeholder({ title, sub }: { title: string; sub: string }) {
+  return (
+    <section className="max-w-xl">
+      <h1 className="text-bright text-base mb-1">{title}</h1>
+      <p className="text-dim">{sub}</p>
+    </section>
+  );
+}
