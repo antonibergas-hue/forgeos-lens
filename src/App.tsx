@@ -4,6 +4,8 @@ import { runForgeos } from "./lib/forgeos";
 import { ContextSwitcher } from "./components/core/ContextSwitcher";
 import { FleetTab } from "./components/fleet/FleetTab";
 import { LogsTab } from "./components/logs/LogsTab";
+import { GovernanceTab } from "./components/governance/GovernanceTab";
+import { McpTab } from "./components/mcp/McpTab";
 
 // MC-style ForgeOS Lens shell: top bar (context name + status dot) + tab
 // strip + content area. Real data wiring lands in subsequent TODOs (#3+).
@@ -125,13 +127,13 @@ function TabContent({ tab }: { tab: TabKey }) {
     case "fleet":
       return <FleetTab />;
     case "governance":
-      return <Placeholder title="Governance" sub="Pending approvals + audit (TODO #8)." />;
+      return <GovernanceTab />;
     case "logs":
       return <LogsTab />;
     case "topology":
       return <Placeholder title="Topology" sub="A2A graph (TODO #9)." />;
     case "mcp":
-      return <Placeholder title="MCP" sub="Connected MCP servers (TODO #10)." />;
+      return <McpTab />;
     case "manifest":
       return <Placeholder title="Manifest" sub="YAML editor + Reapply (TODO #11)." />;
   }
