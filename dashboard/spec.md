@@ -136,33 +136,33 @@ For each TODO the orchestrator should pick the smallest atomic ship that
 keeps the build green. **TODO #1 is shipped (PR #1).** Drop it from the
 backlog.
 
-- [ ] **#2 — Tailwind palette + global shell:** Replace the v1 sidebar
+- [x] **#2 — Tailwind palette + global shell:** Replace the v1 sidebar
       layout with the MC top-bar + tabs + content shell. Wire the
       tailwind tokens above. Routes are tabs, not router pages.
-- [ ] **#3 — `runForgeos<T>` helper + connection toast:** Implement the
+- [x] **#3 — `runForgeos<T>` helper + connection toast:** Implement the
       shell-out wrapper. On first paint, run `forgeos health` and show
       a top-right toast (ok = green dot, error = red banner).
-- [ ] **#4 — Context dropdown:** Reads
+- [x] **#4 — Context dropdown:** Reads
       `forgeos config get-contexts --json` (add the flag if needed),
       shows them in a `<Select>`, switching shells out
       `forgeos config use-context <name>` and reloads the active query.
-- [ ] **#5 — Fleet tab:** FleetBar + table per spec. Click → sheet stub
+- [x] **#5 — Fleet tab:** FleetBar + table per spec. Click → sheet stub
       (just title + close, more later).
-- [ ] **#6 — Agent detail sheet — Overview tab:** Reads
+- [x] **#6 — Agent detail sheet — Overview tab:** Reads
       `forgeos describe <id>` (or `forgeos list --json` + filter when
       describe doesn't exist yet). Show schedule, model, tool count,
       last run timestamp.
-- [ ] **#7 — Logs tab with --follow streaming:** This is the user's
+- [x] **#7 — Logs tab with --follow streaming:** This is the user's
       whole motivation. Spawn the long-running `forgeos logs --follow`
       child process; pipe stdout line-by-line into a Zustand log store.
       Make sure the process is killed on agent switch / tab unmount /
       window close.
-- [ ] **#8 — Governance tab:** Approvals + audit panels. Wire approve /
+- [x] **#8 — Governance tab:** Approvals + audit panels. Wire approve /
       reject / answer.
-- [ ] **#9 — Topology tab:** Force-directed graph.
-- [ ] **#10 — MCP tab:** Static list.
-- [ ] **#11 — Manifest tab with Monaco + Reapply.**
-- [ ] **#12 — Polish:** keyboard shortcuts (cmd+1..9 for tabs, / for
+- [x] **#9 — Topology tab:** Force-directed graph.
+- [x] **#10 — MCP tab:** Static list.
+- [x] **#11 — Manifest tab with Monaco + Reapply.**
+- [x] **#12 — Polish:** keyboard shortcuts (cmd+1..9 for tabs, / for
       search), command palette (cmd+k).
 
 ## Out of scope (don't build)
