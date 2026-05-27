@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Toaster, toast } from "sonner";
 import { runForgeos } from "./lib/forgeos";
 import { ContextSwitcher } from "./components/core/ContextSwitcher";
+import { FleetTab } from "./components/fleet/FleetTab";
 
 // MC-style ForgeOS Lens shell: top bar (context name + status dot) + tab
 // strip + content area. Real data wiring lands in subsequent TODOs (#3+).
@@ -121,7 +122,7 @@ function TabContent({ tab }: { tab: TabKey }) {
   // Placeholder content — every tab is wired up in its own subsequent TODO.
   switch (tab) {
     case "fleet":
-      return <Placeholder title="Fleet" sub="Deployed agents will render here (TODO #5)." />;
+      return <FleetTab />;
     case "governance":
       return <Placeholder title="Governance" sub="Pending approvals + audit (TODO #8)." />;
     case "logs":
