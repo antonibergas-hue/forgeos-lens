@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { runForgeos, ForgeosResult } from '@/lib/forgeos';
+import { runForgeos, ForgeosResult } from '../lib/forgeos';
 
 interface UseForgeosOptions {
   args: string[];

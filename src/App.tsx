@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Toaster, toast } from "sonner";
 import { runForgeos } from "./lib/forgeos";
+import { ContextSwitcher } from "./components/core/ContextSwitcher";
 
 // MC-style ForgeOS Lens shell: top bar (context name + status dot) + tab
 // strip + content area. Real data wiring lands in subsequent TODOs (#3+).
@@ -27,7 +28,6 @@ export default function App() {
   const [tab, setTab] = useState<TabKey>("fleet");
   const [ok, setOk] = useState(false);
   // Placeholder; real read of ~/.forgeos/config.yaml comes in TODO #4.
-  const contextName = "cloud-run";
 
   useEffect(() => {
     async function checkHealth() {
@@ -66,7 +66,7 @@ export default function App() {
         <div className="flex items-center gap-2">
           <span className="text-bright font-semibold">forgeos</span>
           <span className="text-dim">·</span>
-          <span className="text-dim">{contextName}</span>
+          <ContextSwitcher onSwitch={() => window.location.reload()} />
         </div>
         <div className="flex items-center gap-2">
           <span
