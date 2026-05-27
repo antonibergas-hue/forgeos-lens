@@ -1,0 +1,19 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Allows the frontend to run and stream the scoped `forgeos` CLI.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [{ "name": "forgeos", "cmd": "forgeos", "args": true }]
+    },
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [{ "name": "forgeos", "cmd": "forgeos", "args": true }]
+    },
+    "shell:allow-kill",
+    "shell:allow-stdin-write"
+  ]
+}

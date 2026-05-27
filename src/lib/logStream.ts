@@ -1,4 +1,4 @@
-import { Command } from "@tauri-apps/api/shell";
+import { Command } from "@tauri-apps/plugin-shell";
 
 export interface LogStreamHandle {
   kill: () => Promise<void>;
@@ -11,7 +11,7 @@ export async function startLogStream(
   agentId: string,
   onLine: (line: string) => void
 ): Promise<LogStreamHandle> {
-  const cmd = new Command("forgeos", ["logs", agentId, "--follow"]);
+  const cmd = Command.create("forgeos", ["logs", agentId, "--follow"]);
   cmd.stdout.on("data", (line: string) => onLine(line));
   cmd.stderr.on("data", (line: string) => onLine(line));
 

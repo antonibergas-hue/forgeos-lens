@@ -13,14 +13,18 @@ export function useForgeos<T>({ args, skip }: UseForgeosOptions) {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ForgeosResult<T> | null>(null);
 
+  // Key the callback on the args *content*, not the array identity. Callers
+  // pass inline literals (`args: ["list", "--json"]`), which are a new
+  // reference every render; depending on the array directly would recreate
+  // `execute` each render and drive the effect into an infinite refetch loop.
+  const argsKey = JSON.stringify(args);
+
   const execute = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    setData(null);
-    setResult(null);
 
     try {
-      const res = await runForgeos<T>(args);
+      const res = await runForgeos<T>(JSON.parse(argsKey) as string[]);
       setResult(res);
       if (res.ok && res.parsed) {
         setData(res.parsed);
@@ -32,7 +36,7 @@ export function useForgeos<T>({ args, skip }: UseForgeosOptions) {
     } finally {
       setIsLoading(false);
     }
-  }, [args]);
+  }, [argsKey]);
 
   useEffect(() => {
     if (!skip) {

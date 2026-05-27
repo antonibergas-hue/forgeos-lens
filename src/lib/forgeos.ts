@@ -1,4 +1,4 @@
-import { Command } from '@tauri-apps/api/shell';
+import { Command } from '@tauri-apps/plugin-shell';
 
 export interface ForgeosResult<T> {
   ok: boolean;
@@ -11,7 +11,7 @@ export interface ForgeosResult<T> {
 // Run `forgeos <args>` via the Tauri shell and return the result, parsing
 // stdout as JSON when it looks like JSON.
 export async function runForgeos<T>(args: string[]): Promise<ForgeosResult<T>> {
-  const command = new Command('forgeos', args);
+  const command = Command.create('forgeos', args);
   const output = await command.execute();
   const ok = output.code === 0;
 

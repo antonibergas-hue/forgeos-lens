@@ -15,6 +15,7 @@
     },
     "windows": [
       {
+        "label": "main",
         "title": "forgeos-lens",
         "width": 1200,
         "height": 800,
@@ -28,15 +29,5 @@
       "icons/icon.png"
     ]
   },
-  "plugins": {
-    "shell": {
-      "scope": [
-        {
-          "name": "forgeos",
-          "cmd": "forgeos",
-          "args": true
-        }
-      ]
-    }
-  }
+  "plugins": {}
 }

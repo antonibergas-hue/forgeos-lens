@@ -3,36 +3,46 @@ import { runForgeos } from "../../lib/forgeos";
 
 interface Ctx {
   name: string;
-  server?: string;
   current?: boolean;
 }
 
-interface ContextsPayload {
-  contexts?: Ctx[];
-  current_context?: string;
-}
-
-// Reads `forgeos config get-contexts --json`, renders a <select>, and switches
-// the active context via `forgeos config use-context <name>`. On switch it
-// reloads so every tab re-runs its queries against the new endpoint.
+// Reads `forgeos config get-contexts` (a plain-text table — there is no --json
+// flag), renders a <select>, and switches the active context via
+// `forgeos config use-context <name>`. On switch it reloads so every tab
+// re-runs its queries against the new endpoint.
+//
+// Table shape:
+//   CUR     NAME        AUTH    SERVER
+//   ------  ----------  ------  ------------------------------
+//   *       cloud-run   bearer  https://…
+//           prod        bearer  https://…
 export function ContextSwitcher({ onSwitch }: { onSwitch?: (name: string) => void }) {
   const [contexts, setContexts] = useState<Ctx[]>([]);
   const [current, setCurrent] = useState<string>("");
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await runForgeos<ContextsPayload | Ctx[]>([
-      "config",
-      "get-contexts",
-      "--json",
-    ]);
-    if (!res.ok || !res.parsed) return;
-    const p = res.parsed as ContextsPayload | Ctx[];
-    const list: Ctx[] = Array.isArray(p) ? p : p.contexts ?? [];
+    const res = await runForgeos(["config", "get-contexts"]);
+    if (!res.ok) return;
+
+    const list: Ctx[] = [];
+    let cur = "";
+    for (const raw of res.stdout.split("\n")) {
+      const trimmed = raw.trim();
+      if (!trimmed) continue;
+      if (trimmed.startsWith("CUR")) continue; // header
+      if (/^-+/.test(trimmed)) continue; // separator
+      // The "*" marker lives in the first column; a row without it is
+      // left-padded, so detect current from the raw (un-trimmed) line.
+      const isCurrent = raw.trimStart().startsWith("*");
+      const cols = trimmed.split(/\s+/);
+      const name = isCurrent ? cols[1] : cols[0];
+      if (!name) continue;
+      list.push({ name, current: isCurrent });
+      if (isCurrent) cur = name;
+    }
+
     setContexts(list);
-    const cur = Array.isArray(p)
-      ? list.find((c) => c.current)?.name ?? ""
-      : p.current_context ?? "";
     setCurrent(cur || list[0]?.name || "");
   }, []);
 

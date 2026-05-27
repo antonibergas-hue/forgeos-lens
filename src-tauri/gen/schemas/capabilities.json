@@ -1,1 +1,1 @@
-{}
+{"default":{"identifier":"default","description":"Allows the frontend to run and stream the scoped `forgeos` CLI.","local":true,"windows":["main"],"permissions":["core:default",{"identifier":"shell:allow-execute","allow":[{"args":true,"cmd":"forgeos","name":"forgeos"}]},{"identifier":"shell:allow-spawn","allow":[{"args":true,"cmd":"forgeos","name":"forgeos"}]},"shell:allow-kill","shell:allow-stdin-write"]}}
