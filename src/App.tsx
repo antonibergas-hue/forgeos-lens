@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { Toaster, toast } from "sonner";
+import { runForgeos } from "./lib/forgeos";
 
 // MC-style ForgeOS Lens shell: top bar (context name + status dot) + tab
 // strip + content area. Real data wiring lands in subsequent TODOs (#3+).
@@ -23,12 +25,42 @@ const TABS: { key: TabKey; label: string }[] = [
 
 export default function App() {
   const [tab, setTab] = useState<TabKey>("fleet");
+  const [ok, setOk] = useState(false);
   // Placeholder; real read of ~/.forgeos/config.yaml comes in TODO #4.
   const contextName = "cloud-run";
-  const ok = true;
+
+  useEffect(() => {
+    async function checkHealth() {
+      const { ok, stderr } = await runForgeos(["health"]);
+      setOk(ok);
+      if (ok) {
+        // Use a less intrusive toast for success, as per spec ("green dot").
+        toast.message("ForgeOS CLI connected.", {
+          icon: <div className="w-2 h-2 rounded-full bg-ok" />,
+        });
+      } else {
+        // A more prominent error toast, as per spec ("red banner").
+        toast.error("ForgeOS CLI health check failed.", {
+          description: stderr || "Is `forgeos` installed and in your PATH?",
+          duration: 10000, // Keep it sticky
+        });
+      }
+    }
+    checkHealth();
+  }, []);
 
   return (
     <div className="h-full flex flex-col bg-bg text-text font-mono">
+      <Toaster
+        position="top-right"
+        theme="dark"
+        toastOptions={{
+          style: {
+            background: "#161b22",
+            borderColor: "#30363d",
+          },
+        }}
+      />
       {/* Top bar — 24px */}
       <header className="h-6 px-3 flex items-center justify-between border-b border-border bg-surface text-xs">
         <div className="flex items-center gap-2">
