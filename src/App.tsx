@@ -3,6 +3,7 @@ import { Toaster, toast } from "sonner";
 import { runForgeos } from "./lib/forgeos";
 import { ContextSwitcher } from "./components/core/ContextSwitcher";
 import { FleetTab } from "./components/fleet/FleetTab";
+import { LogsTab } from "./components/logs/LogsTab";
 
 // MC-style ForgeOS Lens shell: top bar (context name + status dot) + tab
 // strip + content area. Real data wiring lands in subsequent TODOs (#3+).
@@ -126,7 +127,7 @@ function TabContent({ tab }: { tab: TabKey }) {
     case "governance":
       return <Placeholder title="Governance" sub="Pending approvals + audit (TODO #8)." />;
     case "logs":
-      return <Placeholder title="Logs" sub="forgeos logs --follow stream (TODO #7)." />;
+      return <LogsTab />;
     case "topology":
       return <Placeholder title="Topology" sub="A2A graph (TODO #9)." />;
     case "mcp":
