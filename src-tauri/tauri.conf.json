@@ -27,5 +27,16 @@
     "icon": [
       "icons/icon.png"
     ]
+  },
+  "plugins": {
+    "shell": {
+      "scope": [
+        {
+          "name": "forgeos",
+          "cmd": "forgeos",
+          "args": true
+        }
+      ]
+    }
   }
 }
