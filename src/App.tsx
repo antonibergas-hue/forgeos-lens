@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Toaster, toast } from "sonner";
 import { runForgeos } from "./lib/forgeos";
 import { ContextSwitcher } from "./components/core/ContextSwitcher";
@@ -6,12 +6,14 @@ import { FleetTab } from "./components/fleet/FleetTab";
 import { LogsTab } from "./components/logs/LogsTab";
 import { GovernanceTab } from "./components/governance/GovernanceTab";
 import { McpTab } from "./components/mcp/McpTab";
+import { TopologyTab } from "./components/topology/TopologyTab";
+import { ManifestTab } from "./components/manifest/ManifestTab";
+import { CommandPalette } from "./components/core/CommandPalette";
 
-// MC-style ForgeOS Lens shell: top bar (context name + status dot) + tab
-// strip + content area. Real data wiring lands in subsequent TODOs (#3+).
-// Spec source: dashboard/spec.md v2.
+// MC-style ForgeOS Lens shell: top bar (context + status) + tab strip +
+// content. All data flows through shell-outs to the forgeos CLI.
 
-type TabKey =
+export type TabKey =
   | "fleet"
   | "governance"
   | "logs"
@@ -19,7 +21,7 @@ type TabKey =
   | "mcp"
   | "manifest";
 
-const TABS: { key: TabKey; label: string }[] = [
+export const TABS: { key: TabKey; label: string }[] = [
   { key: "fleet", label: "Fleet" },
   { key: "governance", label: "Governance" },
   { key: "logs", label: "Logs" },
@@ -31,26 +33,43 @@ const TABS: { key: TabKey; label: string }[] = [
 export default function App() {
   const [tab, setTab] = useState<TabKey>("fleet");
   const [ok, setOk] = useState(false);
-  // Placeholder; real read of ~/.forgeos/config.yaml comes in TODO #4.
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   useEffect(() => {
     async function checkHealth() {
       const { ok, stderr } = await runForgeos(["health"]);
       setOk(ok);
       if (ok) {
-        // Use a less intrusive toast for success, as per spec ("green dot").
         toast.message("ForgeOS CLI connected.", {
           icon: <div className="w-2 h-2 rounded-full bg-ok" />,
         });
       } else {
-        // A more prominent error toast, as per spec ("red banner").
         toast.error("ForgeOS CLI health check failed.", {
           description: stderr || "Is `forgeos` installed and in your PATH?",
-          duration: 10000, // Keep it sticky
+          duration: 10000,
         });
       }
     }
     checkHealth();
+  }, []);
+
+  // TODO #12 — keyboard shortcuts: cmd/ctrl+1..6 switch tabs, cmd/ctrl+k opens
+  // the command palette.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+        return;
+      }
+      if (mod && /^[1-6]$/.test(e.key)) {
+        e.preventDefault();
+        setTab(TABS[Number(e.key) - 1].key);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   return (
@@ -58,13 +77,9 @@ export default function App() {
       <Toaster
         position="top-right"
         theme="dark"
-        toastOptions={{
-          style: {
-            background: "#161b22",
-            borderColor: "#30363d",
-          },
-        }}
+        toastOptions={{ style: { background: "#161b22", borderColor: "#30363d" } }}
       />
+
       {/* Top bar — 24px */}
       <header className="h-6 px-3 flex items-center justify-between border-b border-border bg-surface text-xs">
         <div className="flex items-center gap-2">
@@ -73,15 +88,12 @@ export default function App() {
           <ContextSwitcher onSwitch={() => window.location.reload()} />
         </div>
         <div className="flex items-center gap-2">
+          <span className="text-dim hidden sm:inline">⌘K</span>
           <span
-            className={`inline-block w-2 h-2 rounded-full ${
-              ok ? "bg-ok" : "bg-danger"
-            }`}
+            className={`inline-block w-2 h-2 rounded-full ${ok ? "bg-ok" : "bg-danger"}`}
             aria-label={ok ? "ok" : "error"}
           />
-          <span className={ok ? "text-ok" : "text-danger"}>
-            {ok ? "ok" : "error"}
-          </span>
+          <span className={ok ? "text-ok" : "text-danger"}>{ok ? "ok" : "error"}</span>
         </div>
       </header>
 
@@ -91,7 +103,7 @@ export default function App() {
         aria-label="Lens tabs"
         className="h-8 flex items-end border-b border-border bg-surface text-xs"
       >
-        {TABS.map((t) => {
+        {TABS.map((t, i) => {
           const active = tab === t.key;
           return (
             <button
@@ -99,12 +111,10 @@ export default function App() {
               role="tab"
               aria-selected={active}
               onClick={() => setTab(t.key)}
+              title={`⌘${i + 1}`}
               className={[
-                "px-3 h-full flex items-center",
-                "border-b-2 -mb-px",
-                active
-                  ? "border-info text-bright"
-                  : "border-transparent text-dim hover:text-text",
+                "px-3 h-full flex items-center border-b-2 -mb-px",
+                active ? "border-info text-bright" : "border-transparent text-dim hover:text-text",
               ].join(" ")}
             >
               {t.label}
@@ -113,16 +123,24 @@ export default function App() {
         })}
       </nav>
 
-      {/* Content area */}
+      {/* Content */}
       <main className="flex-1 overflow-auto p-4">
         <TabContent tab={tab} />
       </main>
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onPick={(k) => {
+          setTab(k);
+          setPaletteOpen(false);
+        }}
+      />
     </div>
   );
 }
 
 function TabContent({ tab }: { tab: TabKey }) {
-  // Placeholder content — every tab is wired up in its own subsequent TODO.
   switch (tab) {
     case "fleet":
       return <FleetTab />;
@@ -131,19 +149,10 @@ function TabContent({ tab }: { tab: TabKey }) {
     case "logs":
       return <LogsTab />;
     case "topology":
-      return <Placeholder title="Topology" sub="A2A graph (TODO #9)." />;
+      return <TopologyTab />;
     case "mcp":
       return <McpTab />;
     case "manifest":
-      return <Placeholder title="Manifest" sub="YAML editor + Reapply (TODO #11)." />;
+      return <ManifestTab />;
   }
-}
-
-function Placeholder({ title, sub }: { title: string; sub: string }) {
-  return (
-    <section className="max-w-xl">
-      <h1 className="text-bright text-base mb-1">{title}</h1>
-      <p className="text-dim">{sub}</p>
-    </section>
-  );
 }
