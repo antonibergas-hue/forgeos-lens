@@ -1,8 +1,10 @@
 /**
  * A2H (Agent-to-Human) chat API client.
- * Calls platform HTTP endpoints directly using the bearer token
- * from ~/.forgeos/config.yaml.
+ * Calls platform HTTP endpoints directly.
+ * Token is read from ~/.forgeos/config.yaml via Tauri shell (not Node.js fs).
  */
+
+import { Command } from "@tauri-apps/plugin-shell";
 
 interface A2HConfig {
   token: string;
@@ -21,25 +23,37 @@ interface A2HChatSession {
   topic: string;
 }
 
-function loadConfig(): A2HConfig {
-  const fs = require("fs");
-  const path = require("path");
-  const home = process.env.HOME || process.env.USERPROFILE || "";
-  const configPath = path.join(home, ".forgeos", "config.yaml");
-  // Parse YAML manually (lightweight for single values)
-  const raw = fs.readFileSync(configPath, "utf8");
-  const tokenMatch = raw.match(/token:\s*["']?([^"'\s]+)/);
-  const baseMatch = raw.match(/base_url:\s*["']?([^"'\s]+)/);
-  const token = tokenMatch?.[1] || "";
-  const baseUrl = baseMatch?.[1] || "http://localhost:8080";
-  return { token, baseUrl };
+// Cache for config — loaded once, not on every request
+let configCache: A2HConfig | null = null;
+
+async function loadConfig(): Promise<A2HConfig> {
+  if (configCache) return configCache;
+
+  // Read ~/.forgeos/config.yaml via Tauri shell (browser-safe)
+  try {
+    const cmd = Command.create("cat", ["~/.forgeos/config.yaml"]);
+    const output = await cmd.execute();
+
+    const tokenMatch = output.stdout.match(/token:\s*["']?([^"'\s]+)/);
+    const baseMatch = output.stdout.match(/base_url:\s*["']?([^"'\s]+)/);
+
+    configCache = {
+      token: tokenMatch?.[1] || "",
+      baseUrl: baseMatch?.[1] || "http://localhost:8080",
+    };
+    return configCache;
+  } catch {
+    // Fallback — token may not be available in test/browser contexts
+    configCache = { token: "", baseUrl: "http://localhost:8080" };
+    return configCache;
+  }
 }
 
 function headers(): Record<string, string> {
-  const { token } = loadConfig();
+  // Token is cached from loadConfig, called once per session
   return {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
+    Authorization: `Bearer ${configCache?.token || ""}`,
   };
 }
 
@@ -47,7 +61,7 @@ export async function createChat(
   agentId: string,
   topic: string
 ): Promise<A2HChatSession> {
-  const { baseUrl } = loadConfig();
+  const { baseUrl } = await loadConfig();
   const res = await fetch(`${baseUrl}/api/a2h/v1/chats`, {
     method: "POST",
     headers: headers(),
@@ -61,7 +75,7 @@ export async function sendMessage(
   chatId: string,
   text: string
 ): Promise<void> {
-  const { baseUrl } = loadConfig();
+  const { baseUrl } = await loadConfig();
   const res = await fetch(`${baseUrl}/api/a2h/v1/chats/${chatId}/messages`, {
     method: "POST",
     headers: headers(),
@@ -74,7 +88,7 @@ export async function pollMessages(
   chatId: string,
   since: number
 ): Promise<A2HMessage[]> {
-  const { baseUrl } = loadConfig();
+  const { baseUrl } = await loadConfig();
   const res = await fetch(
     `${baseUrl}/api/a2h/v1/chats/${chatId}/messages?since=${since}`,
     { headers: headers() }
@@ -84,7 +98,7 @@ export async function pollMessages(
 }
 
 export async function closeChat(chatId: string): Promise<void> {
-  const { baseUrl } = loadConfig();
+  const { baseUrl } = await loadConfig();
   const res = await fetch(`${baseUrl}/api/a2h/v1/chats/${chatId}/close`, {
     method: "POST",
     headers: headers(),

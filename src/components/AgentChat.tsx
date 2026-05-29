@@ -6,64 +6,105 @@ interface AgentChatProps {
   onClose?: () => void;
 }
 
+// Generate a temp ID for optimistic messages
+let tempIdCounter = 0;
+function genTempId(): string {
+  return `temp-${Date.now()}-${++tempIdCounter}`;
+}
+
+interface TempMessage extends A2HMessage {
+  _tempId?: string;
+}
+
 export function AgentChat({ agentId, onClose }: AgentChatProps) {
   const [chatSession, setChatSession] = useState<A2HChatSession | null>(null);
-  const [messages, setMessages] = useState<A2HMessage[]>([]);
+  const [messages, setMessages] = useState<TempMessage[]>([]);
   const [input, setInput] = useState("");
   const [isPending, setIsPending] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatIdRef = useRef<string | null>(null);
   const sinceRef = useRef<number>(0);
-  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chatIdForCleanup = useRef<string | null>(null);
 
-  // Initialize chat session on mount
+  // Poll for new messages using recursive setTimeout (no stacking)
+  const pollOnce = useCallback(async () => {
+    const chatId = chatIdRef.current;
+    if (!chatId) return;
+
+    try {
+      const newMessages = await pollMessages(chatId, sinceRef.current);
+      for (const msg of newMessages) {
+        if (msg.timestamp > sinceRef.current) {
+          setMessages(prev => {
+            // Dedup: remove optimistic temp message if server returns same content
+            const existingTemp = prev.find(
+              m => m._tempId && m.role === msg.role && m.content === msg.content
+            );
+            if (existingTemp) {
+              return prev.filter(m => m !== existingTemp).concat(msg);
+            }
+            return [...prev, msg];
+          });
+          sinceRef.current = msg.timestamp;
+        }
+      }
+      setIsPending(false);
+    } catch (err) {
+      console.error("Poll failed:", err);
+      setIsPending(false);
+    }
+
+    // Schedule next poll only after this one completes
+    pollTimerRef.current = setTimeout(pollOnce, 1000);
+  }, []);
+
+  // Initialize chat session on mount or agentId change
   useEffect(() => {
     let cancelled = false;
+
+    // Close previous chat if agentId changed
+    if (chatIdForCleanup.current) {
+      closeChat(chatIdForCleanup.current).catch(() => {});
+    }
+
+    // Reset state for new agent
+    setMessages([]);
+    setIsPending(false);
+    setIsInitializing(true);
+    sinceRef.current = 0;
+    chatIdRef.current = null;
+
     (async () => {
       try {
         const session = await createChat(agentId, "Lens chat");
         if (cancelled) return;
         setChatSession(session);
         chatIdRef.current = session.id;
+        chatIdForCleanup.current = session.id;
         setIsInitializing(false);
+
+        // Start polling
+        pollOnce();
       } catch (err) {
         console.error("Failed to create chat:", err);
-        setIsInitializing(false);
+        if (!cancelled) setIsInitializing(false);
       }
     })();
-    return () => { cancelled = true; };
-  }, [agentId]);
-
-  // Poll for new messages
-  useEffect(() => {
-    if (!chatIdRef.current) return;
-
-    pollTimerRef.current = setInterval(async () => {
-      try {
-        const newMessages = await pollMessages(chatIdRef.current!, sinceRef.current);
-        for (const msg of newMessages) {
-          if (msg.timestamp > sinceRef.current) {
-            setMessages(prev => [...prev, msg]);
-            sinceRef.current = msg.timestamp;
-          }
-        }
-        setIsPending(false);
-      } catch (err) {
-        console.error("Poll failed:", err);
-      }
-    }, 1000);
 
     return () => {
-      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      cancelled = true;
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
     };
-  }, [chatIdRef.current]);
+  }, [agentId, pollOnce]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (chatIdRef.current) {
-        closeChat(chatIdRef.current).catch(() => {});
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+      if (chatIdForCleanup.current) {
+        closeChat(chatIdForCleanup.current).catch(() => {});
       }
     };
   }, []);
@@ -75,11 +116,13 @@ export function AgentChat({ agentId, onClose }: AgentChatProps) {
     setInput("");
     setIsPending(true);
 
-    // Optimistically add human message
-    const humanMsg: A2HMessage = {
+    // Optimistically add human message with temp ID for dedup
+    const tempId = genTempId();
+    const humanMsg: TempMessage = {
       role: "human",
       content: text,
       timestamp: Date.now(),
+      _tempId: tempId,
     };
     setMessages(prev => [...prev, humanMsg]);
     sinceRef.current = humanMsg.timestamp;
