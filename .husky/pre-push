@@ -1,0 +1,19 @@
+#!/usr/bin/env sh
+# Refuse to push directly to main / master. Belt-and-suspenders for the
+# failure mode where a tired engineer (or an agent on a stale checkout)
+# pushes a feature commit straight to the default branch.
+#
+# Bypass with `git push --no-verify` (use sparingly).
+
+branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo DETACHED)
+
+case "$branch" in
+  main|master)
+    echo "✗ pre-push: refusing to push '$branch' directly."
+    echo "  Open a feature branch:  git switch -c feat/<topic>"
+    echo "  Then PR against $branch via 'gh pr create --fill --base $branch'."
+    exit 1
+    ;;
+esac
+
+exit 0

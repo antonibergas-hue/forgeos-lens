@@ -177,7 +177,10 @@ backlog.
 ## Hard rules for the building agents
 
 - Do not invent CLI verbs/flags. If you need one, open a side PR on this
-  repo describing the gap.
+  repo describing the gap. `pnpm check:cli` enforces this — it greps
+  every `runForgeos([...])` / `useForgeos({args:[...]})` / `Command.create(
+  'forgeos', [...])` call and rejects any flag that `forgeos help <cmd>`
+  doesn't list.
 - Do not bake the bearer token into the UI bundle — it stays in
   `~/.forgeos/config.yaml`, the CLI reads it on every shell-out.
 - All long-running child processes (logs --follow) must register a
@@ -185,3 +188,42 @@ backlog.
 - pnpm only (not npm/bun).
 - Every PR title is `feat(<area>): <one-line>` — the orchestrator
   reads PR history to dedupe.
+- Never use `build.rollupOptions.external` / `rolldownOptions.external`
+  to silence a missing-module error. Install the module. `pnpm check:tauri`
+  fails the build if any `@tauri-apps/*` module appears in an `external`
+  list.
+- Frontend Tauri integrations use the v2 plugin path. `@tauri-apps/api/
+  {shell,fs,dialog,…}` is gone — use `@tauri-apps/plugin-<x>`. `new
+  Command(...)` is private — use `Command.create(...)`. Every plugin
+  needs npm dep + Cargo crate + `main.rs` `.plugin(...)` + a capability
+  granting the scoped permissions. `pnpm check:tauri` enforces all four.
+- Pushing directly to `main` is forbidden. A `.husky/pre-push` hook
+  refuses it locally; protect the branch on GitHub too.
+
+## Pipeline merge gate
+
+The merge gate is **not** "the code compiles." Every PR must pass:
+
+1. `pnpm install --frozen-lockfile`
+2. `pnpm typecheck`
+3. `pnpm check:cli` — CLI-contract validator
+4. `pnpm check:tauri` — Tauri-v2 plugin wiring + Tailwind v4 lint
+5. `pnpm build`
+6. `cargo check --manifest-path src-tauri/Cargo.toml`
+7. `pnpm test:e2e` — **mandatory**: boots the Vite dev URL with the
+   `__TAURI_INTERNALS__`-absent branch active (fixture data via
+   `src/lib/forgeos.fixtures.ts`) and asserts the bug-shapes from the
+   feat/lens-mc-shell post-mortem:
+   - body computed background is `rgb(13, 17, 23)` (no unstyled bundle),
+   - no `pageerror` events across any tab,
+   - `ContextSwitcher` renders a `<select>` with the current context
+     (no "no context" fallback),
+   - Fleet shows ≥7 rows that don't oscillate to 0 over 1.5s
+     (no `useForgeos` refetch loop),
+   - Logs agent dropdown contains the seven fixture agents,
+   - per-tab screenshots are written to `test-results/` for the
+     reviewer to attach to the PR.
+
+The tester is responsible for steps 1–7 and emits a JSON envelope; the
+orchestrator merges only if `ok=true` AND the envelope contains a
+`verify-runtime` step with `ok=true`. `[WIP]` PR titles never auto-merge.
