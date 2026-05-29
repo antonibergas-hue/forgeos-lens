@@ -164,7 +164,7 @@ backlog.
 - [x] **#11 — Manifest tab with Monaco + Reapply.**
 - [x] **#12 — Polish:** keyboard shortcuts (cmd+1..9 for tabs, / for
       search), command palette (cmd+k).
-- [ ] **#13 — Playwright smoke harness:** Catch the recurring "UI is
+- [x] **#13 — Playwright smoke harness:** Catch the recurring "UI is
       broken when I pull" pain by smoke-testing every tab in headless
       Chromium against a mocked CLI.
 
