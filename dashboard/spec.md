@@ -164,6 +164,143 @@ backlog.
 - [x] **#11 — Manifest tab with Monaco + Reapply.**
 - [x] **#12 — Polish:** keyboard shortcuts (cmd+1..9 for tabs, / for
       search), command palette (cmd+k).
+- [ ] **#13 — Playwright smoke harness:** Catch the recurring "UI is
+      broken when I pull" pain by smoke-testing every tab in headless
+      Chromium against a mocked CLI.
+
+      a) Make `runForgeos<T>` browser-safe. In `src/lib/forgeos.ts`,
+         at the top of `runForgeos`, check
+         `typeof window !== 'undefined' && !(window as any).__TAURI_INTERNALS__`
+         and dispatch to a fixture map by `args[0]`. Real Tauri runs
+         unchanged.
+
+      b) Add `src/lib/forgeos.fixtures.ts` exporting
+         `MOCK_FIXTURES: Record<string, () => Promise<ForgeosResult<unknown>>>`
+         keyed on the first CLI arg. Cover at minimum: `health`,
+         `list --json` (3 fake agents — one of each lifecycle type so
+         FleetBar shows non-zero counts), `describe <id>`,
+         `logs --follow <id>` (5 events then stop), and
+         `config get-contexts --json` (two contexts).
+
+      c) Install Playwright (`pnpm add -D @playwright/test`), add
+         `playwright.config.ts` with
+         `webServer: { command: "pnpm dev", url: "http://localhost:5173",
+         reuseExistingServer: !process.env.CI, timeout: 60_000 }`,
+         single `chromium` project, `testDir: "tests"`. Add
+         `"test:e2e": "playwright test"` to `package.json` scripts.
+
+      d) Write `tests/smoke.spec.ts` with five tests:
+         - **boots** — page loads, top bar contains `forgeos:`, health
+           dot has the `ok` colour.
+         - **tabs render** — for each of Fleet / Governance / Logs /
+           Topology / MCP / Manifest, click the tab and assert the
+           expected landmark is visible.
+         - **fleet row → sheet** — click the first agent row, assert
+           `<AgentDetailSheet>` opens with the agent name.
+         - **context switch** — open the context dropdown, pick the
+           second context, assert the Fleet table re-renders.
+         - **logs unmount safety** — open Logs → Manifest → Logs.
+           Listen for `pageerror` and `console.error`. Assert zero
+           errors. This is the regression guard for the long-running
+           child-process cleanup rule.
+
+      e) Add to the **Hard rules for the building agents** section
+         below: `pnpm test:e2e must pass before opening a PR`.
+
+      Out of scope: wiring the `forgeos-lens-tester` agent on the
+      forgeos side to invoke `pnpm test:e2e` — separate platform PR.
+
+- [ ] **#14 — A2H chat panel in the Fleet detail sheet:** Surface the
+      A2H protocol the platform already speaks (`/api/a2h/v1/chats/*`)
+      so a human can have a conversation with any running agent from
+      inside the Lens.
+
+      a) Extend `AgentDetailSheet` with a new "Chat" tab alongside
+         Overview / Recent runs / Tools / Manifest / Raw JSON.
+
+      b) On tab activation, POST `forgeos chat <agent_id> --topic
+         "Lens chat"` via the existing Tauri shell-out plumbing — but
+         since `forgeos chat` is interactive, **the CLI is not the
+         right interface here**. Instead call the platform HTTP
+         endpoints directly with the bearer token from
+         `~/.forgeos/config.yaml`:
+         - `POST  /api/a2h/v1/chats` to open the session
+         - `POST  /api/a2h/v1/chats/{id}/messages` to send a human msg
+         - `GET   /api/a2h/v1/chats/{id}/messages?since=<ts>` to poll
+           (1s interval — long-poll later, not now)
+         - `POST  /api/a2h/v1/chats/{id}/close` on tab close
+         Wrap them in a small `src/lib/a2h.ts` so the chat component
+         doesn't know about HTTP details.
+
+      c) Render the conversation as a single column: human messages
+         right-aligned, agent messages left-aligned, monospace, with
+         a thin top border between turns. Use the Mission Control
+         palette tokens (no new colours).
+
+      d) Input bar at the bottom: textarea + Send button + cmd+enter
+         submit. Disable while the agent's last reply is pending.
+
+      e) Show an inline "thinking…" placeholder while the agent is
+         working (poll the session for new agent messages).
+
+      Out of scope (Phase 2): tool-call rendering inline, attachment
+      uploads, streaming token-by-token, multi-agent broadcast.
+
+- [ ] **#15 — Tool-call detail expansion in the Logs tab:** The
+      platform now records `cwd`, `cmd`, `returncode`, `stdout_tail`,
+      `stderr_tail`, and `files_changed` on every dev-tool audit row
+      (the forgeos-side change shipped with the qwen-code rollout).
+      Surface them in the Logs tab so the operator can debug a stuck
+      agent run without leaving the Lens.
+
+      a) When a `tool.call` event is rendered, render a chevron on the
+         right. Click expands inline with a 6-line block: `cwd`, `cmd`
+         (or summarized args for non-shell tools), `returncode` (with a
+         red badge if non-zero), `pr_url` (if present, as a link),
+         and the first ~30 lines of `stdout_tail` and `stderr_tail` in
+         a `<pre>` with horizontal scroll.
+
+      b) Keyboard: ↑/↓ moves the expanded row; `space` toggles expand.
+
+      c) Don't expand by default — only on click — so the dense htop
+         vibe survives.
+
+- [ ] **#16 — Pod-shell pane (live agent introspection):** Add a
+      "Shell" tab to the Fleet detail sheet that lets the operator
+      run commands inside the running agent's per-invocation workdir.
+
+      Depends on a forgeos-side platform change that exposes a new
+      tool wrapper `pod__exec(agent_id, cmd)` (or equivalent
+      `/api/platform/agents/{id}/shell` endpoint) — open a side PR
+      describing the contract you need; do **not** ship this UI
+      without that endpoint, just open the gap PR and stop.
+
+      Once the endpoint exists:
+      a) Tab "Shell" renders a terminal-like pane (xterm.js).
+      b) Input runs `pod__exec` against the selected agent's most
+         recent invocation_id (or the current one if running).
+      c) Stream stdout/stderr back into the pane.
+
+- [ ] **#17 — Loading skeletons + error boundaries everywhere:**
+      Eliminate the "blank tab then a wall of data" flicker and the
+      "white screen of death" when a tab crashes.
+
+      a) Add a `<TabErrorBoundary>` in `src/components/core/` that
+         catches render errors per tab and shows a dense one-liner
+         "tab `<name>` crashed: <message> — [retry]". Wrap every tab
+         entry in `App.tsx`.
+
+      b) Add a `<Skeleton>` primitive (animate-pulse div with the
+         `surface` colour) and use it during the first paint of:
+         FleetTab (table rows skeleton, ~6 rows),
+         GovernanceTab (3 stub rows),
+         LogsTab (header only — log lines stream in),
+         TopologyTab (graph placeholder rect),
+         ManifestTab (Monaco's built-in loading is fine, leave it).
+
+      c) Toast the error from `useForgeos` once, not on every refetch
+         — debounce by 2s to stop the cascade when CLI is briefly
+         unreachable.
 
 ## Out of scope (don't build)
 
@@ -185,3 +322,4 @@ backlog.
 - pnpm only (not npm/bun).
 - Every PR title is `feat(<area>): <one-line>` — the orchestrator
   reads PR history to dedupe.
+- `pnpm test:e2e` must pass before opening a PR (once #13 ships).
