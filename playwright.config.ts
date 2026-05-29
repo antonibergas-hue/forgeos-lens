@@ -8,6 +8,9 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },
+  use: {
+    baseURL: 'http://localhost:5173',
+  },
   projects: [
     {
       name: 'chromium',
