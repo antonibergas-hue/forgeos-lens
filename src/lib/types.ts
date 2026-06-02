@@ -80,3 +80,24 @@ export interface AgentRun {
   completion_tokens?: number;
   error?: string;
 }
+
+// ---- Approval / A2H types ----
+
+export type ApprovalRequestType = "approval" | "confirm" | "text" | "choice" | "number";
+export type ApprovalRisk = "low" | "medium" | "high";
+export type ApprovalStatus = "pending" | "approved" | "rejected" | "answered";
+
+export interface Approval {
+  id: string;
+  agent_id: string;
+  agent_name?: string;
+  question: string;
+  request_type: ApprovalRequestType;
+  risk: ApprovalRisk;
+  status: ApprovalStatus;
+  created_at: string;
+  // For "choice" type
+  options?: string[];
+  // Human reply (after answer)
+  reply?: string;
+}

@@ -20,7 +20,7 @@ export const MOCK_FIXTURES: Record<string, () => Promise<ForgeosResult>> = {
     code: 0,
   }),
 
-  // describe <id> --json — returns AgentDetail shape
+  // describe <id> — returns AgentDetail shape
   'describe agent-1': async () => ({
     ok: true,
     stdout: JSON.stringify({
@@ -154,4 +154,47 @@ export const MOCK_FIXTURES: Record<string, () => Promise<ForgeosResult>> = {
     ]),
     code: 0,
   }),
+
+  // approvals list --json
+  'approvals list --json': async () => ({
+    ok: true,
+    stdout: JSON.stringify([
+      {
+        id: 'req-1',
+        agent_id: 'agent-1',
+        agent_name: 'builder',
+        question: 'Allow deployment to production? 2 files changed.',
+        request_type: 'approval',
+        risk: 'high',
+        status: 'pending',
+        created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+      },
+      {
+        id: 'req-2',
+        agent_id: 'agent-3',
+        agent_name: 'reviewer',
+        question: 'What is the deployment priority for this fix?',
+        request_type: 'choice',
+        options: ['critical', 'standard', 'low'],
+        risk: 'medium',
+        status: 'pending',
+        created_at: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
+      },
+      {
+        id: 'req-3',
+        agent_id: 'agent-1',
+        agent_name: 'builder',
+        question: 'Confirm: install dependencies via pnpm?',
+        request_type: 'confirm',
+        risk: 'low',
+        status: 'pending',
+        created_at: new Date(Date.now() - 1000 * 60 * 2).toISOString(),
+      },
+    ]),
+    code: 0,
+  }),
+
+  'approvals approve req-1': async () => ({ ok: true, stdout: 'Approved req-1', code: 0 }),
+  'approvals reject req-1': async () => ({ ok: true, stdout: 'Rejected req-1', code: 0 }),
+  'answer req-2 --text critical': async () => ({ ok: true, stdout: 'Answered req-2', code: 0 }),
 };
