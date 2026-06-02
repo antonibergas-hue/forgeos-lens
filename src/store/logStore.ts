@@ -3,12 +3,26 @@ import type { LogEntry } from "../lib/types";
 
 const MAX_LINES = 2000; // cap memory for long-running --follow streams
 
+// Filter presets for log chips
+export type FilterKey = "all" | "runs" | "tools" | "errors";
+export const FILTERS: { key: FilterKey; label: string; kind: string[] }[] = [
+  { key: "all", label: "All", kind: [] },
+  { key: "runs", label: "Runs", kind: ["started", "completed"] },
+  { key: "tools", label: "Tools", kind: ["tool"] },
+  { key: "errors", label: "Errors", kind: ["failed"] },
+];
+
 interface LogState {
   agentId: string | null;
   entries: LogEntry[];
   expanded: Set<number>;       // set of entry indices whose tool detail is expanded
   focusedIdx: number | null;   // keyboard focus for ↑/↓ nav
   nextIdx: number;             // auto-incremented counter for unique indices
+
+  // Live-tail polish state
+  filterKey: FilterKey;
+  isPaused: boolean;
+  isAtBottom: boolean;
 
   setAgent: (id: string | null) => void;
   append: (entry: LogEntry) => void;
@@ -19,6 +33,14 @@ interface LogState {
   expandDown: () => void;      // move focus ↓, expand if on a tool call
   toggleFocused: () => void;   // space key — toggle expand of focused entry
   setFocused: (idx: number | null) => void;
+
+  // Live-tail polish actions
+  setFilter: (key: FilterKey) => void;
+  setPaused: (paused: boolean) => void;
+  setIsAtBottom: (atBottom: boolean) => void;
+
+  // Derived helpers
+  getFilteredEntries: () => LogEntry[];
 }
 
 export const useLogStore = create<LogState>((set, get) => ({
@@ -27,6 +49,10 @@ export const useLogStore = create<LogState>((set, get) => ({
   expanded: new Set(),
   focusedIdx: null,
   nextIdx: 0,
+
+  filterKey: "all",
+  isPaused: false,
+  isAtBottom: true,
 
   setAgent: (id) => set({ agentId: id, entries: [], expanded: new Set(), focusedIdx: null }),
 
@@ -95,4 +121,16 @@ export const useLogStore = create<LogState>((set, get) => ({
     }),
 
   setFocused: (idx) => set({ focusedIdx: idx }),
+
+  // Live-tail polish actions
+  setFilter: (key) => set({ filterKey: key }),
+  setPaused: (paused) => set({ isPaused: paused }),
+  setIsAtBottom: (atBottom) => set({ isAtBottom: atBottom }),
+
+  getFilteredEntries: () => {
+    const { entries, filterKey } = get();
+    const filter = FILTERS.find((f) => f.key === filterKey);
+    if (!filter || filter.kind.length === 0) return entries;
+    return entries.filter((e) => filter.kind.includes(e.kind));
+  },
 }));
