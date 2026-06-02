@@ -14,7 +14,7 @@ test.describe('smoke', () => {
   test('tabs render — click each tab and assert landmark is visible', async ({ page }) => {
     await page.goto('/');
 
-    const tabs = ['Fleet', 'Governance', 'Logs', 'Topology', 'MCP', 'Manifest'];
+    const tabs = ['Fleet', 'Governance', 'Logs', 'Topology', 'MCP', 'Manifest', 'Cluster'];
 
     for (const label of tabs) {
       // Click the tab

@@ -13,7 +13,7 @@ const GROUPS: { label: string; shortcuts: Shortcut[] }[] = [
   {
     label: "Navigation",
     shortcuts: [
-      { key: "⌘1–6", desc: "Switch tabs" },
+      { key: "⌘1–7", desc: "Switch tabs" },
       { key: "⌘K", desc: "Command palette" },
       { key: "?", desc: "Toggle this overlay" },
     ],

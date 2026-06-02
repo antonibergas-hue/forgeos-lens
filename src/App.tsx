@@ -8,6 +8,7 @@ import { GovernanceTab } from "./components/governance/GovernanceTab";
 import { McpTab } from "./components/mcp/McpTab";
 import { TopologyTab } from "./components/topology/TopologyTab";
 import { ManifestTab } from "./components/manifest/ManifestTab";
+import { ClusterTab } from "./components/cluster/ClusterTab";
 import { CommandPalette } from "./components/core/CommandPalette";
 import { TabErrorBoundary } from "./components/core/TabErrorBoundary";
 import { StatusBar } from "./components/core/StatusBar";
@@ -23,7 +24,8 @@ export type TabKey =
   | "logs"
   | "topology"
   | "mcp"
-  | "manifest";
+  | "manifest"
+  | "cluster";
 
 export const TABS: { key: TabKey; label: string }[] = [
   { key: "fleet", label: "Fleet" },
@@ -32,6 +34,7 @@ export const TABS: { key: TabKey; label: string }[] = [
   { key: "topology", label: "Topology" },
   { key: "mcp", label: "MCP" },
   { key: "manifest", label: "Manifest" },
+  { key: "cluster", label: "Cluster" },
 ];
 
 export default function App() {
@@ -61,7 +64,7 @@ export default function App() {
 
   // Keyboard shortcuts:
   // - cmd/ctrl+k: command palette
-  // - cmd/ctrl+1..6: switch tabs
+  // - cmd/ctrl+1..7: switch tabs
   // - ?: shortcuts overlay
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -73,7 +76,7 @@ export default function App() {
         return;
       }
 
-      if (mod && /^[1-6]$/.test(e.key)) {
+      if (mod && /^[1-7]$/.test(e.key)) {
         e.preventDefault();
         setTab(TABS[Number(e.key) - 1].key);
         return;
@@ -87,7 +90,6 @@ export default function App() {
       if (e.key === "Escape") {
         setPaletteOpen(false);
         setShortcutsOpen(false);
-        // setSelectedAgentId(null) — handled by the sheet's own Esc if it wants, but global Esc is safe
       }
     }
     window.addEventListener("keydown", onKey);
@@ -161,7 +163,7 @@ export default function App() {
         <TabContent tab={tab} onSelectAgent={setSelectedAgentId} />
       </main>
 
-      {/* Bottom bar (TODO: polish per spec north star) */}
+      {/* Bottom bar */}
       <StatusBar />
 
       <CommandPalette
@@ -229,6 +231,12 @@ function TabContent({ tab, onSelectAgent }: { tab: TabKey; onSelectAgent: (id: s
       return (
         <TabErrorBoundary name="Manifest">
           <ManifestTab />
+        </TabErrorBoundary>
+      );
+    case "cluster":
+      return (
+        <TabErrorBoundary name="Cluster">
+          <ClusterTab />
         </TabErrorBoundary>
       );
   }
