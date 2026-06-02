@@ -66,3 +66,17 @@ export interface LogEntry {
   // Present on kind==="tool" entries
   tool?: ToolCallDetail;
 }
+
+// ---- Agent run types ----
+
+export interface AgentRun {
+  run_id: string;
+  agent_id: string;
+  status: "completed" | "failed" | "running" | "cancelled";
+  started_at: string;
+  duration_ms: number;
+  phase?: string;
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  error?: string;
+}

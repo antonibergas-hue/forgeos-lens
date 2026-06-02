@@ -78,6 +78,25 @@ export const MOCK_FIXTURES: Record<string, () => Promise<ForgeosResult>> = {
     code: 0,
   }),
 
+  // runs <id> --json
+  'runs agent-1 --json': async () => ({
+    ok: true,
+    stdout: JSON.stringify([
+      { run_id: 'run-1', agent_id: 'agent-1', status: 'completed', started_at: '2025-06-02T10:00:00Z', duration_ms: 12000, prompt_tokens: 1200, completion_tokens: 450 },
+      { run_id: 'run-2', agent_id: 'agent-1', status: 'failed', started_at: '2025-06-02T10:15:00Z', duration_ms: 4500, error: 'Command failed: pnpm build' },
+      { run_id: 'run-3', agent_id: 'agent-1', status: 'completed', started_at: '2025-06-02T10:30:00Z', duration_ms: 8900, prompt_tokens: 1050, completion_tokens: 380 },
+    ]),
+    code: 0,
+  }),
+
+  'runs agent-2 --json': async () => ({
+    ok: true,
+    stdout: JSON.stringify([
+      { run_id: 'run-4', agent_id: 'agent-2', status: 'completed', started_at: '2025-06-02T09:00:00Z', duration_ms: 5600, prompt_tokens: 500, completion_tokens: 120 },
+    ]),
+    code: 0,
+  }),
+
   // logs --follow <id> --json — returns log events with tool details (used by LogsTab)
   'logs --follow agent-1 --json': async () => ({
     ok: true,
