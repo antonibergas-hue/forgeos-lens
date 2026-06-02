@@ -10,6 +10,7 @@ import { TopologyTab } from "./components/topology/TopologyTab";
 import { ManifestTab } from "./components/manifest/ManifestTab";
 import { CommandPalette } from "./components/core/CommandPalette";
 import { TabErrorBoundary } from "./components/core/TabErrorBoundary";
+import { StatusBar } from "./components/core/StatusBar";
 
 // MC-style ForgeOS Lens shell: top bar (context + status) + tab strip +
 // content. All data flows through shell-outs to the forgeos CLI.
@@ -54,7 +55,7 @@ export default function App() {
     checkHealth();
   }, []);
 
-  // TODO #12 — keyboard shortcuts: cmd/ctrl+1..6 switch tabs, cmd/ctrl+k opens
+  // Keyboard shortcuts: cmd/ctrl+1..6 switch tabs, cmd/ctrl+k opens
   // the command palette.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -82,7 +83,7 @@ export default function App() {
       />
 
       {/* Top bar — 24px */}
-      <header className="h-6 px-3 flex items-center justify-between border-b border-border bg-surface text-xs">
+      <header className="h-6 px-3 flex items-center justify-between border-b border-border bg-surface text-xs shrink-0">
         <div className="flex items-center gap-2">
           <span className="text-bright font-semibold">forgeos</span>
           <span className="text-dim">·</span>
@@ -102,7 +103,7 @@ export default function App() {
       <nav
         role="tablist"
         aria-label="Lens tabs"
-        className="h-8 flex items-end border-b border-border bg-surface text-xs"
+        className="h-8 flex items-end border-b border-border bg-surface text-xs shrink-0"
       >
         {TABS.map((t, i) => {
           const active = tab === t.key;
@@ -128,6 +129,9 @@ export default function App() {
       <main className="flex-1 overflow-auto p-4">
         <TabContent tab={tab} />
       </main>
+
+      {/* Bottom bar (TODO: polish per spec north star) */}
+      <StatusBar />
 
       <CommandPalette
         open={paletteOpen}
