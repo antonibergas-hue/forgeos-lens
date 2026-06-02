@@ -216,7 +216,7 @@ function TabContent({ tab, onSelectAgent }: { tab: TabKey; onSelectAgent: (id: s
     case "topology":
       return (
         <TabErrorBoundary name="Topology">
-          <TopologyTab />
+          <TopologyTab onSelectAgent={onSelectAgent} />
         </TabErrorBoundary>
       );
     case "mcp":
