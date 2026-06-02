@@ -116,7 +116,7 @@ Mapping:
 | --- | --- |
 | Fleet list | `forgeos list --json` (new flag — agents emit JSON when present) |
 | Agent detail | `forgeos describe <id>` (new verb) |
-| Recent runs | `forgeos runs <id> --limit 20 --json` (new verb) |
+| Recent runs | `forgeos describe <id> --limit 20 --json` (new verb) |
 | Logs streaming | `forgeos logs <id> --follow --json` |
 | Approvals list | `forgeos approvals list --json` (already exists, drop --short footer) |
 | Approve / reject | `forgeos approvals approve <id>` |
@@ -210,7 +210,7 @@ backlog.
       Out of scope: wiring the `forgeos-lens-tester` agent on the
       forgeos side to invoke `pnpm test:e2e` — separate platform PR.
 
-- [ ] **#14 — A2H chat panel in the Fleet detail sheet:** Surface the
+- [x] **#14 — A2H chat panel in the Fleet detail sheet:** Surface the
       A2H protocol the platform already speaks (`/api/a2h/v1/chats/*`)
       so a human can have a conversation with any running agent from
       inside the Lens.
@@ -246,7 +246,7 @@ backlog.
       Out of scope (Phase 2): tool-call rendering inline, attachment
       uploads, streaming token-by-token, multi-agent broadcast.
 
-- [ ] **#15 — Tool-call detail expansion in the Logs tab:** The
+- [x] **#15 — Tool-call detail expansion in the Logs tab:** The
       platform now records `cwd`, `cmd`, `returncode`, `stdout_tail`,
       `stderr_tail`, and `files_changed` on every dev-tool audit row
       (the forgeos-side change shipped with the qwen-code rollout).
@@ -281,7 +281,7 @@ backlog.
          recent invocation_id (or the current one if running).
       c) Stream stdout/stderr back into the pane.
 
-- [ ] **#17 — Loading skeletons + error boundaries everywhere:**
+- [x] **#17 — Loading skeletons + error boundaries everywhere:**
       Eliminate the "blank tab then a wall of data" flicker and the
       "white screen of death" when a tab crashes.
 
