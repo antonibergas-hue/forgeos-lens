@@ -3,10 +3,11 @@ import { RefreshCw } from "lucide-react";
 import { useForgeos } from "../../hooks/useForgeos";
 import { Agent, statusColor } from "../../lib/types";
 import { AgentDetailSheet } from "./AgentDetailSheet";
+import { FleetBar } from "../core/FleetBar";
 import { SkeletonRow } from "../core/Skeleton";
 
-// Fleet tab: a bar (count + refresh) over a table of deployed agents from
-// `forgeos list --json`. Clicking a row opens the detail sheet (TODO #5/#6).
+// Fleet tab: a FleetBar strip (phase-count pills) over a table of deployed
+// agents from `forgeos list --json`.  Clicking a row opens the detail sheet.
 export function FleetTab() {
   const { data, error, isLoading, refetch } = useForgeos<Agent[]>({
     args: ["list", "--json"],
@@ -17,14 +18,12 @@ export function FleetTab() {
 
   return (
     <div className="text-xs">
-      {/* FleetBar */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-dim">
-          <span className="text-bright font-semibold">{agents.length}</span> agents
-        </div>
+      {/* FleetBar — phase-count pills (spec: "fat coloured pills") */}
+      <div className="flex items-center justify-between mb-1">
+        <FleetBar agents={agents} />
         <button
           onClick={refetch}
-          className="inline-flex items-center gap-1 text-dim hover:text-text border border-border rounded px-2 py-0.5"
+          className="inline-flex items-center gap-1 text-dim hover:text-text border border-border rounded px-2 py-0.5 shrink-0 ml-auto"
         >
           <RefreshCw className={`w-3 h-3 ${isLoading ? "animate-spin" : ""}`} />
           Refresh
