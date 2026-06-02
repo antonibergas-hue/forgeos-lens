@@ -197,4 +197,55 @@ export const MOCK_FIXTURES: Record<string, () => Promise<ForgeosResult>> = {
   'approvals approve req-1': async () => ({ ok: true, stdout: 'Approved req-1', code: 0 }),
   'approvals reject req-1': async () => ({ ok: true, stdout: 'Rejected req-1', code: 0 }),
   'answer req-2 --text critical': async () => ({ ok: true, stdout: 'Answered req-2', code: 0 }),
+
+  // mcp list --json
+  'mcp list --json': async () => ({
+    ok: true,
+    stdout: JSON.stringify([
+      {
+        name: 'google-workspace',
+        url: 'https://mcp.google.com/v1',
+        status: 'connected',
+        protocol: 'sse',
+        latency_ms: 120,
+        last_heartbeat: new Date(Date.now() - 1000 * 45).toISOString(),
+        tools: [
+          { name: 'send_email', description: 'Sends an email via Gmail' },
+          { name: 'list_calendar_events', description: 'Lists calendar events' },
+          { name: 'create_doc', description: 'Creates a new Google Doc' }
+        ]
+      },
+      {
+        name: 'atlassian',
+        url: 'https://mcp.atlassian.net',
+        status: 'connected',
+        protocol: 'sse',
+        latency_ms: 240,
+        last_heartbeat: new Date(Date.now() - 1000 * 12).toISOString(),
+        tools: [
+          { name: 'create_jira_issue', description: 'Creates a Jira issue' },
+          { name: 'search_confluence', description: 'Searches Confluence pages' }
+        ]
+      },
+      {
+        name: 'slack',
+        url: 'https://mcp.slack.com',
+        status: 'configured',
+        protocol: 'stdio',
+        tools: [
+          { name: 'post_message', description: 'Posts a message to a channel' },
+          { name: 'list_channels', description: 'Lists public channels' }
+        ]
+      },
+      {
+        name: 'postgres',
+        url: 'localhost:5432',
+        status: 'error',
+        protocol: 'stdio',
+        error: 'Connection timeout',
+        tools: []
+      }
+    ]),
+    code: 0,
+  })
 };

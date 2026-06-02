@@ -101,3 +101,24 @@ export interface Approval {
   // Human reply (after answer)
   reply?: string;
 }
+
+// ---- MCP server types ----
+
+export type McpStatus = "connected" | "configured" | "error";
+
+export interface McpTool {
+  name: string;
+  description: string;
+  input_schema?: string;
+}
+
+export interface McpServer {
+  name: string;
+  url: string;
+  status: McpStatus;
+  protocol: "stdio" | "sse";
+  latency_ms?: number;
+  last_heartbeat?: string;
+  tools: McpTool[];
+  error?: string;
+}
