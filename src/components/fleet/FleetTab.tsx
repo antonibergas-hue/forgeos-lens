@@ -3,6 +3,7 @@ import { RefreshCw } from "lucide-react";
 import { useForgeos } from "../../hooks/useForgeos";
 import { Agent, statusColor } from "../../lib/types";
 import { AgentDetailSheet } from "./AgentDetailSheet";
+import { SkeletonRow } from "../core/Skeleton";
 
 // Fleet tab: a bar (count + refresh) over a table of deployed agents from
 // `forgeos list --json`. Clicking a row opens the detail sheet (TODO #5/#6).
@@ -43,25 +44,33 @@ export function FleetTab() {
           </tr>
         </thead>
         <tbody>
-          {agents.map((a) => (
-            <tr
-              key={a.agent_id}
-              onClick={() => setSelected(a.agent_id)}
-              className="border-b border-border/50 hover:bg-border/30 cursor-pointer"
-            >
-              <td className="py-1 pr-3 text-dim">{a.agent_id.slice(0, 12)}</td>
-              <td className="py-1 pr-3 text-text">{a.name}</td>
-              <td className="py-1 pr-3 text-dim">{a.stack}</td>
-              <td className="py-1 pr-3 text-dim">{a.execution_type}</td>
-              <td className="py-1 pr-3">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className={`inline-block w-2 h-2 rounded-full ${statusColor(a.status)}`} />
-                  <span className="text-dim">{a.status}</span>
-                </span>
-              </td>
-            </tr>
-          ))}
-          {!isLoading && agents.length === 0 && (
+          {isLoading && !data ? (
+            <>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <SkeletonRow key={i} columns={5} />
+              ))}
+            </>
+          ) : (
+            agents.map((a) => (
+              <tr
+                key={a.agent_id}
+                onClick={() => setSelected(a.agent_id)}
+                className="border-b border-border/50 hover:bg-border/30 cursor-pointer"
+              >
+                <td className="py-1 pr-3 text-dim">{a.agent_id.slice(0, 12)}</td>
+                <td className="py-1 pr-3 text-text">{a.name}</td>
+                <td className="py-1 pr-3 text-dim">{a.stack}</td>
+                <td className="py-1 pr-3 text-dim">{a.execution_type}</td>
+                <td className="py-1 pr-3">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className={`inline-block w-2 h-2 rounded-full ${statusColor(a.status)}`} />
+                    <span className="text-dim">{a.status}</span>
+                  </span>
+                </td>
+              </tr>
+            ))
+          )}
+          {!isLoading && agents.length === 0 && !data && (
             <tr>
               <td colSpan={5} className="py-3 text-dim text-center">
                 No agents deployed.

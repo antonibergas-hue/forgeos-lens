@@ -1,6 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { runForgeos, ForgeosResult } from '../lib/forgeos';
+import { useDebouncedError } from './useDebouncedError';
 
 interface UseForgeosOptions {
   args: string[];
@@ -12,6 +13,7 @@ export function useForgeos<T>({ args, skip }: UseForgeosOptions) {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ForgeosResult<T> | null>(null);
+  const notifyError = useDebouncedError();
 
   // Key the callback on the args *content*, not the array identity. Callers
   // pass inline literals (`args: ["list", "--json"]`), which are a new
@@ -29,14 +31,18 @@ export function useForgeos<T>({ args, skip }: UseForgeosOptions) {
       if (res.ok && res.parsed) {
         setData(res.parsed);
       } else if (!res.ok) {
-        setError(res.stderr || `forgeos exited with code ${res.code}`);
+        const msg = res.stderr || `forgeos exited with code ${res.code}`;
+        setError(msg);
+        notifyError(msg);
       }
     } catch (e: any) {
-      setError(e.message || 'An unknown error occurred');
+      const msg = e.message || 'An unknown error occurred';
+      setError(msg);
+      notifyError(msg);
     } finally {
       setIsLoading(false);
     }
-  }, [argsKey]);
+  }, [argsKey, notifyError]);
 
   useEffect(() => {
     if (!skip) {

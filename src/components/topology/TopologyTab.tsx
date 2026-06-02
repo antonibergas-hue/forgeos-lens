@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useForgeos } from "../../hooks/useForgeos";
 import { Agent } from "../../lib/types";
+import { SkeletonGraph } from "../core/Skeleton";
 
 interface Node { id: string; name: string; x: number; y: number; vx: number; vy: number }
 interface Edge { from: string; to: string }
@@ -12,7 +13,7 @@ const H = 400;
 // (orchestrator → builder / tester / reviewer), nodes from `forgeos list
 // --json`. Lightweight SVG sim, no external graph lib (TODO #9).
 export function TopologyTab() {
-  const { data } = useForgeos<Agent[]>({ args: ["list", "--json"] });
+  const { data, isLoading } = useForgeos<Agent[]>({ args: ["list", "--json"] });
   const agents = data ?? [];
   const nodesRef = useRef<Node[]>([]);
   const edgesRef = useRef<Edge[]>([]);
@@ -88,6 +89,15 @@ export function TopologyTab() {
 
   const nodes = nodesRef.current;
   const edges = edgesRef.current;
+
+  if (isLoading && !data) {
+    return (
+      <div className="text-xs">
+        <p className="text-dim mb-2">A2A topology — orchestrator drives builder / tester / reviewer.</p>
+        <SkeletonGraph w={W} h={H} />
+      </div>
+    );
+  }
 
   return (
     <div className="text-xs">
