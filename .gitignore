@@ -6,3 +6,6 @@ src-tauri/target/
 
 # Created by npm, not pnpm
 package-lock.json
+
+# Playwright artifacts
+test-results/

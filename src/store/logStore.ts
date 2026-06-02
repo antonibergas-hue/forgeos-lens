@@ -1,20 +1,98 @@
 import { create } from "zustand";
+import type { LogEntry } from "../lib/types";
 
 const MAX_LINES = 2000; // cap memory for long-running --follow streams
 
 interface LogState {
   agentId: string | null;
-  lines: string[];
+  entries: LogEntry[];
+  expanded: Set<number>;       // set of entry indices whose tool detail is expanded
+  focusedIdx: number | null;   // keyboard focus for ↑/↓ nav
+  nextIdx: number;             // auto-incremented counter for unique indices
+
   setAgent: (id: string | null) => void;
-  append: (line: string) => void;
+  append: (entry: LogEntry) => void;
+  appendBatch: (entries: LogEntry[]) => void;
   clear: () => void;
+  toggleExpand: (idx: number) => void;
+  expandUp: () => void;        // move focus ↑, expand if on a tool call
+  expandDown: () => void;      // move focus ↓, expand if on a tool call
+  toggleFocused: () => void;   // space key — toggle expand of focused entry
+  setFocused: (idx: number | null) => void;
 }
 
-export const useLogStore = create<LogState>((set) => ({
+export const useLogStore = create<LogState>((set, get) => ({
   agentId: null,
-  lines: [],
-  setAgent: (id) => set({ agentId: id, lines: [] }),
-  append: (line) =>
-    set((s) => ({ lines: [...s.lines, line].slice(-MAX_LINES) })),
-  clear: () => set({ lines: [] }),
+  entries: [],
+  expanded: new Set(),
+  focusedIdx: null,
+  nextIdx: 0,
+
+  setAgent: (id) => set({ agentId: id, entries: [], expanded: new Set(), focusedIdx: null }),
+
+  append: (entry) =>
+    set((s) => {
+      const entries = [...s.entries, entry].slice(-MAX_LINES);
+      return { entries, nextIdx: s.nextIdx + 1 };
+    }),
+
+  appendBatch: (batch) =>
+    set((s) => ({
+      entries: [...s.entries, ...batch].slice(-MAX_LINES),
+      nextIdx: s.nextIdx + batch.length,
+    })),
+
+  clear: () => set({ entries: [], expanded: new Set(), focusedIdx: null }),
+
+  toggleExpand: (idx) =>
+    set((s) => {
+      const next = new Set(s.expanded);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return { expanded: next };
+    }),
+
+  expandUp: () =>
+    set((s) => {
+      const entries = s.entries;
+      const focused = s.focusedIdx;
+      let idx = focused != null ? focused : entries.length - 1;
+      // Walk up to find a "tool" kind entry
+      for (let i = idx; i >= 0; i--) {
+        if (entries[i]?.kind === "tool") {
+          const newExpanded = new Set(s.expanded);
+          newExpanded.add(i);
+          return { focusedIdx: i, expanded: newExpanded };
+        }
+      }
+      // If nothing above, just move focus up one
+      return { focusedIdx: Math.max(0, idx - 1) };
+    }),
+
+  expandDown: () =>
+    set((s) => {
+      const entries = s.entries;
+      const focused = s.focusedIdx;
+      let idx = focused != null ? focused : 0;
+      for (let i = idx; i < entries.length; i++) {
+        if (entries[i]?.kind === "tool") {
+          const newExpanded = new Set(s.expanded);
+          newExpanded.add(i);
+          return { focusedIdx: i, expanded: newExpanded };
+        }
+      }
+      // Nothing below, move down one
+      return { focusedIdx: Math.min(entries.length - 1, idx + 1) };
+    }),
+
+  toggleFocused: () =>
+    set((s) => {
+      if (s.focusedIdx == null) return s;
+      const next = new Set(s.expanded);
+      if (next.has(s.focusedIdx)) next.delete(s.focusedIdx);
+      else next.add(s.focusedIdx);
+      return { expanded: next };
+    }),
+
+  setFocused: (idx) => set({ focusedIdx: idx }),
 }));
