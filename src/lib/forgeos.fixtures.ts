@@ -9,6 +9,33 @@ export interface ForgeosResult<T = unknown> {
 export const MOCK_FIXTURES: Record<string, () => Promise<ForgeosResult>> = {
   'health': async () => ({ ok: true, stdout: 'ok', code: 0 }),
 
+  // Health for specific context (new CLI gap PR documented: forgeos health --context <name> --json)
+  'health --context cloud-run --json': async () => ({
+    ok: true,
+    stdout: JSON.stringify({
+      name: 'cloud-run',
+      version: 'v0.1.0',
+      connection: 'connected',
+      latency_ms: 45,
+      last_error: null,
+      checked_at: new Date().toISOString()
+    }),
+    code: 0,
+  }),
+
+  'health --context local --json': async () => ({
+    ok: true,
+    stdout: JSON.stringify({
+      name: 'local',
+      version: 'v0.1.1-dev',
+      connection: 'connected',
+      latency_ms: 5,
+      last_error: null,
+      checked_at: new Date().toISOString()
+    }),
+    code: 0,
+  }),
+
   // list --json — returns Agent[] shape (agent_id, status, execution_type)
   'list --json': async () => ({
     ok: true,

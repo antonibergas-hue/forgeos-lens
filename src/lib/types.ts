@@ -122,3 +122,16 @@ export interface McpServer {
   tools: McpTool[];
   error?: string;
 }
+
+// ---- Cluster / Context-Health types ----
+
+export type ConnectionState = "connected" | "disconnected" | "degraded" | "unknown";
+
+export interface ContextHealth {
+  name: string;
+  version: string;
+  connection: ConnectionState;
+  latency_ms: number | null;
+  last_error: string | null;
+  checked_at: string;
+}
