@@ -1,19 +1,22 @@
 import { useEffect, useRef } from "react";
 import { useForgeos } from "../../hooks/useForgeos";
-import { Agent } from "../../lib/types";
+import { Agent, LogEntry, ToolCallDetail } from "../../lib/types";
 import { startLogStream, LogStreamHandle } from "../../lib/logStream";
 import { useLogStore } from "../../store/logStore";
 
-// Logs tab: pick an agent, stream `forgeos logs <id> --follow` line-by-line
-// into the Zustand log store. The child process is killed on agent switch,
-// tab unmount, and window close (TODO #7).
 export function LogsTab() {
   const { data: agents } = useForgeos<Agent[]>({ args: ["list", "--json"] });
   const agentId = useLogStore((s) => s.agentId);
-  const lines = useLogStore((s) => s.lines);
+  const entries = useLogStore((s) => s.entries);
+  const expanded = useLogStore((s) => s.expanded);
+  const focusedIdx = useLogStore((s) => s.focusedIdx);
   const setAgent = useLogStore((s) => s.setAgent);
   const append = useLogStore((s) => s.append);
   const clear = useLogStore((s) => s.clear);
+  const toggleExpand = useLogStore((s) => s.toggleExpand);
+  const expandUp = useLogStore((s) => s.expandUp);
+  const expandDown = useLogStore((s) => s.expandDown);
+  const toggleFocused = useLogStore((s) => s.toggleFocused);
 
   const handleRef = useRef<LogStreamHandle | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -30,18 +33,20 @@ export function LogsTab() {
     setAgent(id || null);
     if (id) {
       try {
-        handleRef.current = await startLogStream(id, (line) => append(line));
+        handleRef.current = await startLogStream(id, (entry) => append(entry));
       } catch (e) {
-        append(`[stream error] ${String(e)}`);
+        append({
+          idx: Date.now(),
+          time: "",
+          kind: "failed",
+          msg: `[stream error] ${String(e)}`,
+        });
       }
     }
   }
 
-  // Kill the child on unmount and on window close.
   useEffect(() => {
-    const onUnload = () => {
-      void stop();
-    };
+    const onUnload = () => { void stop(); };
     window.addEventListener("beforeunload", onUnload);
     return () => {
       window.removeEventListener("beforeunload", onUnload);
@@ -49,20 +54,31 @@ export function LogsTab() {
     };
   }, []);
 
-  // Autoscroll to the newest line.
+  // Keyboard navigation
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (document.activeElement?.tagName === "SELECT") return;
+      if (e.key === "ArrowUp") { e.preventDefault(); expandUp(); }
+      if (e.key === "ArrowDown") { e.preventDefault(); expandDown(); }
+      if (e.key === " ") { e.preventDefault(); toggleFocused(); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [expandUp, expandDown, toggleFocused]);
+
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [lines]);
+  }, [entries]);
 
   return (
-    <div className="text-xs h-full flex flex-col">
-      <div className="flex items-center gap-2 mb-2">
+    <div className="text-[11px] h-full flex flex-col bg-bg">
+      <div className="flex items-center gap-2 mb-2 p-1">
         <select
           aria-label="Agent"
           value={agentId ?? ""}
           onChange={(e) => select(e.target.value)}
-          className="bg-surface text-text border border-border rounded px-1.5 py-0.5 focus:outline-none focus:border-info"
+          className="bg-surface text-text border border-border rounded px-1.5 py-0.5 focus:outline-none focus:border-info text-[11px]"
         >
           <option value="">Select an agent…</option>
           {(agents ?? []).map((a) => (
@@ -77,30 +93,152 @@ export function LogsTab() {
             following
           </span>
         )}
-        <button
-          onClick={clear}
-          className="ml-auto text-dim hover:text-text border border-border rounded px-2 py-0.5"
-        >
-          Clear
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-dim">↑/↓ nav · space expand</span>
+          <button
+            onClick={clear}
+            className="text-dim hover:text-text border border-border rounded px-2 py-0.5"
+          >
+            Clear
+          </button>
+        </div>
       </div>
 
       <div
         ref={scrollRef}
-        className="flex-1 overflow-auto bg-bg border border-border rounded p-2 font-mono whitespace-pre-wrap leading-relaxed"
+        className="flex-1 overflow-auto bg-bg border border-border rounded-md font-mono leading-relaxed"
       >
-        {lines.length === 0 ? (
-          <p className="text-dim">
+        {entries.length === 0 ? (
+          <div className="p-4 text-dim">
             {agentId ? "Waiting for log output…" : "Pick an agent to stream its logs."}
-          </p>
+          </div>
         ) : (
-          lines.map((l, i) => (
-            <div key={i} className="text-text">
-              {l}
-            </div>
-          ))
+          <div className="flex flex-col">
+            {entries.map((entry, i) => (
+              <LogLine
+                key={entry.idx}
+                entry={entry}
+                isExpanded={expanded.has(i)}
+                isFocused={focusedIdx === i}
+                onToggle={() => toggleExpand(i)}
+              />
+            ))}
+          </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function LogLine({
+  entry,
+  isExpanded,
+  isFocused,
+  onToggle,
+}: {
+  entry: LogEntry;
+  isExpanded: boolean;
+  isFocused: boolean;
+  onToggle: () => void;
+}) {
+  const isTool = entry.kind === "tool";
+  const color =
+    entry.kind === "started"
+      ? "text-cyan"
+      : entry.kind === "completed"
+      ? "text-ok"
+      : entry.kind === "failed"
+      ? "text-danger"
+      : entry.kind === "tool"
+      ? "text-orange"
+      : "text-dim";
+
+  return (
+    <div
+      className={`group border-l-2 ${
+        isFocused ? "bg-surface/50 border-info" : "border-transparent hover:bg-surface/30"
+      }`}
+    >
+      <div
+        onClick={isTool ? onToggle : undefined}
+        className={`flex items-center gap-2 px-2 py-0.5 cursor-pointer ${isTool ? "" : "cursor-default"}`}
+      >
+        <span className="text-[10px] text-dim w-12 shrink-0">{entry.time}</span>
+        <span className={`w-16 shrink-0 font-bold ${color}`}>{entry.kind}</span>
+        <span className="flex-1 truncate text-text">{entry.msg}</span>
+        {isTool && (
+          <span className="text-dim group-hover:text-text transition-colors">
+            {isExpanded ? "▼" : "▶"}
+          </span>
+        )}
+      </div>
+
+      {isTool && isExpanded && entry.tool && (
+        <ToolDetail detail={entry.tool} />
+      )}
+    </div>
+  );
+}
+
+function ToolDetail({ detail }: { detail: ToolCallDetail }) {
+  return (
+    <div className="mx-14 mb-2 p-2 bg-surface border border-border rounded-sm text-[10px] space-y-2">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-dim">
+        <div>
+          <span className="text-bright">cwd:</span> {detail.cwd}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-bright">returncode:</span>
+          <span className={`px-1 rounded ${detail.returncode === 0 ? "bg-ok/20 text-ok" : "bg-danger/20 text-danger"}`}>
+            {detail.returncode}
+          </span>
+        </div>
+        <div className="col-span-2">
+          <span className="text-bright">cmd:</span> <code className="text-text">{detail.cmd}</code>
+        </div>
+        {detail.pr_url && (
+          <div className="col-span-2">
+            <span className="text-bright">pr:</span>{" "}
+            <a href={detail.pr_url} target="_blank" className="text-info hover:underline">
+              {detail.pr_url}
+            </a>
+          </div>
+        )}
+      </div>
+
+      {(detail.stdout_tail || detail.stderr_tail) && (
+        <div className="space-y-1">
+          {detail.stdout_tail && (
+            <div>
+              <div className="text-bright mb-1">stdout_tail:</div>
+              <pre className="p-1.5 bg-bg border border-border rounded overflow-x-auto text-text max-h-32">
+                {detail.stdout_tail}
+              </pre>
+            </div>
+          )}
+          {detail.stderr_tail && (
+            <div>
+              <div className="text-danger mb-1 font-semibold">stderr_tail:</div>
+              <pre className="p-1.5 bg-bg border border-border rounded overflow-x-auto text-danger max-h-32">
+                {detail.stderr_tail}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+
+      {detail.files_changed && detail.files_changed.length > 0 && (
+        <div>
+          <div className="text-bright mb-1">files_changed:</div>
+          <div className="flex flex-wrap gap-1">
+            {detail.files_changed.map((f) => (
+              <span key={f} className="px-1 bg-surface border border-border rounded text-dim">
+                {f}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

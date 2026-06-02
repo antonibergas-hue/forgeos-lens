@@ -10,6 +10,7 @@ export interface Agent {
 }
 
 export interface AgentDetail {
+  agent_id?: string;
   name: string;
   description?: string;
   stack?: string;
@@ -40,3 +41,28 @@ export const statusColor = (s?: string): string => {
       return "bg-dim";
   }
 };
+
+// ---- Log entry types (TODO #15) ----
+
+export interface ToolCallDetail {
+  cwd: string;
+  cmd: string;
+  returncode: number;
+  stdout_tail?: string;
+  stderr_tail?: string;
+  pr_url?: string;
+  files_changed?: string[];
+}
+
+export interface LogEntry {
+  // Unique index in the store
+  idx: number;
+  // ISO-ish or human timestamp
+  time: string;
+  // kind: "started" | "completed" | "failed" | "tool" | other
+  kind: string;
+  // Human-readable summary line
+  msg: string;
+  // Present on kind==="tool" entries
+  tool?: ToolCallDetail;
+}

@@ -40,54 +40,40 @@ export const MOCK_FIXTURES: Record<string, () => Promise<ForgeosResult>> = {
     code: 0,
   }),
 
-  'describe agent-2': async () => ({
+  // logs --follow <id> --json — returns log events with tool details (used by LogsTab)
+  'logs --follow agent-1 --json': async () => ({
     ok: true,
-    stdout: JSON.stringify({
-      agent_id: 'agent-2',
-      name: 'tester',
-      description: 'Runs tests and validates',
-      execution_type: 'tester',
-      status: 'idle',
-      schedule: null,
-      llm_config: { chat_model: 'qwen', provider: 'openai' },
-      tools: ['playwright', 'cargo-test'],
-      department: 'qa',
-      ownership: 'forgeos-team',
-      metadata: { last_run: '10 min ago' },
-      created_at: '2025-01-01T00:00:00Z',
-    }),
-    code: 0,
-  }),
-
-  'describe agent-3': async () => ({
-    ok: true,
-    stdout: JSON.stringify({
-      agent_id: 'agent-3',
-      name: 'reviewer',
-      description: 'Reviews PRs',
-      execution_type: 'reviewer',
-      status: 'failed',
-      schedule: 'every 10m',
-      llm_config: { chat_model: 'gemini', provider: 'google' },
-      tools: ['gh-pr-review'],
-      department: 'engineering',
-      ownership: 'forgeos-team',
-      metadata: { last_run: '1 hour ago' },
-      created_at: '2025-01-01T00:00:00Z',
-    }),
-    code: 0,
-  }),
-
-  // logs --follow <id> — returns log events (used by LogsTab)
-  'logs --follow agent-1': async () => ({
-    ok: true,
-    stdout: JSON.stringify([
-      { time: '10:00:00', kind: 'started', msg: 'run started' },
-      { time: '10:00:01', kind: 'tool', msg: 'tool.call shell__exec' },
-      { time: '10:00:02', kind: 'completed', msg: 'completed' },
-      { time: '10:00:03', kind: 'started', msg: 'run 2' },
-      { time: '10:00:04', kind: 'failed', msg: 'error: timeout' },
-    ]),
+    stdout: [
+      JSON.stringify({ time: '10:00:00', kind: 'started', msg: 'run started' }),
+      JSON.stringify({
+        time: '10:00:01',
+        kind: 'tool',
+        msg: 'tool.call shell__exec',
+        tool: {
+          cwd: '/tmp/forgeos',
+          cmd: 'pnpm build',
+          returncode: 0,
+          stdout_tail: 'vite v6.0.0 building for production...\n✓ built in 1.2s',
+          stderr_tail: '',
+          pr_url: 'https://github.com/org/repo/pull/42',
+          files_changed: ['dist/index.html', 'dist/assets/index.js'],
+        }
+      }),
+      JSON.stringify({ time: '10:00:02', kind: 'completed', msg: 'completed' }),
+      JSON.stringify({
+        time: '10:00:03',
+        kind: 'tool',
+        msg: 'tool.call cargo-test',
+        tool: {
+          cwd: '/tmp/forgeos/src-tauri',
+          cmd: 'cargo test --lib',
+          returncode: 1,
+          stdout_tail: 'running 42 tests\nFAILED: test_auth_layer',
+          stderr_tail: 'error: process exited with code 1',
+        }
+      }),
+      JSON.stringify({ time: '10:00:04', kind: 'failed', msg: 'error: tests failed' }),
+    ].join('\n'),
     code: 0,
   }),
 
