@@ -9,6 +9,7 @@ import { McpTab } from "./components/mcp/McpTab";
 import { TopologyTab } from "./components/topology/TopologyTab";
 import { ManifestTab } from "./components/manifest/ManifestTab";
 import { CommandPalette } from "./components/core/CommandPalette";
+import { TabErrorBoundary } from "./components/core/TabErrorBoundary";
 
 // MC-style ForgeOS Lens shell: top bar (context + status) + tab strip +
 // content. All data flows through shell-outs to the forgeos CLI.
@@ -143,16 +144,40 @@ export default function App() {
 function TabContent({ tab }: { tab: TabKey }) {
   switch (tab) {
     case "fleet":
-      return <FleetTab />;
+      return (
+        <TabErrorBoundary name="Fleet">
+          <FleetTab />
+        </TabErrorBoundary>
+      );
     case "governance":
-      return <GovernanceTab />;
+      return (
+        <TabErrorBoundary name="Governance">
+          <GovernanceTab />
+        </TabErrorBoundary>
+      );
     case "logs":
-      return <LogsTab />;
+      return (
+        <TabErrorBoundary name="Logs">
+          <LogsTab />
+        </TabErrorBoundary>
+      );
     case "topology":
-      return <TopologyTab />;
+      return (
+        <TabErrorBoundary name="Topology">
+          <TopologyTab />
+        </TabErrorBoundary>
+      );
     case "mcp":
-      return <McpTab />;
+      return (
+        <TabErrorBoundary name="MCP">
+          <McpTab />
+        </TabErrorBoundary>
+      );
     case "manifest":
-      return <ManifestTab />;
+      return (
+        <TabErrorBoundary name="Manifest">
+          <ManifestTab />
+        </TabErrorBoundary>
+      );
   }
 }

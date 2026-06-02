@@ -2,12 +2,13 @@ import { useState } from "react";
 import { useForgeos } from "../../hooks/useForgeos";
 import { runForgeos } from "../../lib/forgeos";
 import { Agent } from "../../lib/types";
+import { SkeletonBlock } from "../core/Skeleton";
 
 // Manifest tab: pick an agent, view its manifest (from `forgeos describe <id>
 // --json`) in an editor, and Reapply. Uses a mono <textarea> editor rather
 // than pulling in the heavy Monaco bundle (TODO #11).
 export function ManifestTab() {
-  const { data: agents } = useForgeos<Agent[]>({ args: ["list", "--json"] });
+  const { data: agents, isLoading } = useForgeos<Agent[]>({ args: ["list", "--json"] });
   const [id, setId] = useState("");
   const [text, setText] = useState("");
   const [msg, setMsg] = useState("");
@@ -40,19 +41,23 @@ export function ManifestTab() {
   return (
     <div className="text-xs h-full flex flex-col">
       <div className="flex items-center gap-2 mb-2">
-        <select
-          aria-label="Agent"
-          value={id}
-          onChange={(e) => load(e.target.value)}
-          className="bg-surface text-text border border-border rounded px-1.5 py-0.5 focus:outline-none focus:border-info"
-        >
-          <option value="">Select an agent…</option>
-          {(agents ?? []).map((a) => (
-            <option key={a.agent_id} value={a.agent_id}>
-              {a.name}
-            </option>
-          ))}
-        </select>
+        {isLoading && !agents ? (
+          <SkeletonBlock width="w-48" height="h-6" />
+        ) : (
+          <select
+            aria-label="Agent"
+            value={id}
+            onChange={(e) => load(e.target.value)}
+            className="bg-surface text-text border border-border rounded px-1.5 py-0.5 focus:outline-none focus:border-info"
+          >
+            <option value="">Select an agent…</option>
+            {(agents ?? []).map((a) => (
+              <option key={a.agent_id} value={a.agent_id}>
+                {a.name}
+              </option>
+            ))}
+          </select>
+        )}
         <button
           disabled={!id || busy}
           onClick={reapply}
