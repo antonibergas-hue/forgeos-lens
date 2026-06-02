@@ -12,6 +12,7 @@ import { CommandPalette } from "./components/core/CommandPalette";
 import { TabErrorBoundary } from "./components/core/TabErrorBoundary";
 import { StatusBar } from "./components/core/StatusBar";
 import { AgentDetailSheet } from "./components/fleet/AgentDetailSheet";
+import { KeyboardShortcutsOverlay } from "./components/core/KeyboardShortcutsOverlay";
 
 // MC-style ForgeOS Lens shell: top bar (context + status) + tab strip +
 // content. All data flows through shell-outs to the forgeos CLI.
@@ -37,6 +38,7 @@ export default function App() {
   const [tab, setTab] = useState<TabKey>("fleet");
   const [ok, setOk] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -57,19 +59,35 @@ export default function App() {
     checkHealth();
   }, []);
 
-  // Keyboard shortcuts: cmd/ctrl+1..6 switch tabs, cmd/ctrl+k opens
-  // the command palette.
+  // Keyboard shortcuts:
+  // - cmd/ctrl+k: command palette
+  // - cmd/ctrl+1..6: switch tabs
+  // - ?: shortcuts overlay
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const mod = e.metaKey || e.ctrlKey;
+
       if (mod && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setPaletteOpen((v) => !v);
         return;
       }
+
       if (mod && /^[1-6]$/.test(e.key)) {
         e.preventDefault();
         setTab(TABS[Number(e.key) - 1].key);
+        return;
+      }
+
+      // '?' key (often Shift+/)
+      if (e.key === "?" && !mod && document.activeElement?.tagName !== "INPUT" && document.activeElement?.tagName !== "TEXTAREA") {
+        setShortcutsOpen((v) => !v);
+      }
+
+      if (e.key === "Escape") {
+        setPaletteOpen(false);
+        setShortcutsOpen(false);
+        // setSelectedAgentId(null) — handled by the sheet's own Esc if it wants, but global Esc is safe
       }
     }
     window.addEventListener("keydown", onKey);
@@ -103,8 +121,9 @@ export default function App() {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-dim hidden sm:inline">⌘K</span>
+          <span className="text-dim ml-1">?</span>
           <span
-            className={`inline-block w-2 h-2 rounded-full ${ok ? "bg-ok" : "bg-danger"}`}
+            className={`inline-block w-2 h-2 rounded-full ml-1 ${ok ? "bg-ok" : "bg-danger"}`}
             aria-label={ok ? "ok" : "error"}
           />
           <span className={ok ? "text-ok" : "text-danger"}>{ok ? "ok" : "error"}</span>
@@ -157,6 +176,11 @@ export default function App() {
           setPaletteOpen(false);
         }}
         onContextSwitch={handleContextSwitch}
+      />
+
+      <KeyboardShortcutsOverlay
+        open={shortcutsOpen}
+        onClose={() => setShortcutsOpen(false)}
       />
 
       {selectedAgentId && (
