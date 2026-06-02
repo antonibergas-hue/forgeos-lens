@@ -40,6 +40,44 @@ export const MOCK_FIXTURES: Record<string, () => Promise<ForgeosResult>> = {
     code: 0,
   }),
 
+  'describe agent-2': async () => ({
+    ok: true,
+    stdout: JSON.stringify({
+      agent_id: 'agent-2',
+      name: 'tester',
+      description: 'Runs tests and quality checks',
+      execution_type: 'tester',
+      status: 'idle',
+      schedule: 'every 10m',
+      llm_config: { chat_model: 'claude-3.5-sonnet', provider: 'anthropic' },
+      tools: ['shell__exec', 'fs__write'],
+      department: 'qa',
+      ownership: 'forgeos-team',
+      metadata: { last_run: '15 min ago' },
+      created_at: '2025-01-02T00:00:00Z',
+    }),
+    code: 0,
+  }),
+
+  'describe agent-3': async () => ({
+    ok: true,
+    stdout: JSON.stringify({
+      agent_id: 'agent-3',
+      name: 'reviewer',
+      description: 'Code review and PR approval',
+      execution_type: 'reviewer',
+      status: 'failed',
+      schedule: 'once',
+      llm_config: { chat_model: 'gpt-4o', provider: 'openai' },
+      tools: ['shell__exec'],
+      department: 'engineering',
+      ownership: 'forgeos-team',
+      metadata: { last_run: '1 hour ago' },
+      created_at: '2025-01-03T00:00:00Z',
+    }),
+    code: 0,
+  }),
+
   // logs --follow <id> --json — returns log events with tool details (used by LogsTab)
   'logs --follow agent-1 --json': async () => ({
     ok: true,

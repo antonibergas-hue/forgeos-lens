@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { RefreshCw, Search, ChevronUp, ChevronDown } from "lucide-react";
 import { useForgeos } from "../../hooks/useForgeos";
 import { Agent, statusColor } from "../../lib/types";
-import { AgentDetailSheet } from "./AgentDetailSheet";
 import { FleetBar } from "../core/FleetBar";
 import { SkeletonRow } from "../core/Skeleton";
 
@@ -12,7 +11,7 @@ type SortOrder = "asc" | "desc";
 // Fleet tab: a FleetBar strip (phase-count pills) over a table of deployed
 // agents from `forgeos list --json`.
 // Features: Column sorting, text filtering, j/k keyboard navigation, auto-polling.
-export function FleetTab() {
+export function FleetTab({ onSelectAgent }: { onSelectAgent: (id: string) => void }) {
   const { data, error, isLoading, refetch } = useForgeos<Agent[]>({
     args: ["list", "--json"],
   });
@@ -21,7 +20,6 @@ export function FleetTab() {
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
   const [focusedIndex, setFocusedIndex] = useState(0);
-  const [selected, setSelected] = useState<string | null>(null);
 
   // Auto-refresh every 10s (spec: "real-data polish")
   useEffect(() => {
@@ -69,10 +67,6 @@ export function FleetTab() {
     }
   };
 
-  const handleOpen = useCallback((agent_id: string) => {
-    setSelected(agent_id);
-  }, []);
-
   // Keyboard navigation (j/k, enter, /)
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -89,7 +83,7 @@ export function FleetTab() {
         setFocusedIndex((i) => Math.max(i - 1, 0));
       } else if (e.key === "Enter") {
         const target = filteredAgents[focusedIndex];
-        if (target) handleOpen(target.agent_id);
+        if (target) onSelectAgent(target.agent_id);
       } else if (e.key === "/") {
         e.preventDefault();
         document.querySelector<HTMLInputElement>("#fleet-search")?.focus();
@@ -97,7 +91,7 @@ export function FleetTab() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [filteredAgents, focusedIndex, handleOpen]);
+  }, [filteredAgents, focusedIndex, onSelectAgent]);
 
   // Keep focus in bounds if list changes
   useEffect(() => {
@@ -107,7 +101,7 @@ export function FleetTab() {
   }, [filteredAgents.length, focusedIndex]);
 
   return (
-    <div className="text-xs h-full flex flex-col">
+    <div className="text-xs h-full flex flex-col font-mono">
       {/* FleetBar strip */}
       <div className="flex items-center justify-between mb-2 shrink-0">
         <FleetBar agents={agents} />
@@ -157,7 +151,7 @@ export function FleetTab() {
                 return (
                   <tr
                     key={a.agent_id}
-                    onClick={() => setSelected(a.agent_id)}
+                    onClick={() => onSelectAgent(a.agent_id)}
                     className={`
                       border-b border-border/30 cursor-pointer transition-colors
                       ${isFocused ? "bg-surface/60 ring-1 ring-inset ring-info/50 shadow-inner" : "hover:bg-surface/30"}
@@ -194,10 +188,6 @@ export function FleetTab() {
         <span><b className="text-text">/</b> search</span>
         {error && <span className="text-danger ml-auto">Error: {error}</span>}
       </div>
-
-      {selected && (
-        <AgentDetailSheet agentId={selected} onClose={() => setSelected(null)} />
-      )}
     </div>
   );
 }

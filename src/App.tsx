@@ -11,6 +11,7 @@ import { ManifestTab } from "./components/manifest/ManifestTab";
 import { CommandPalette } from "./components/core/CommandPalette";
 import { TabErrorBoundary } from "./components/core/TabErrorBoundary";
 import { StatusBar } from "./components/core/StatusBar";
+import { AgentDetailSheet } from "./components/fleet/AgentDetailSheet";
 
 // MC-style ForgeOS Lens shell: top bar (context + status) + tab strip +
 // content. All data flows through shell-outs to the forgeos CLI.
@@ -36,6 +37,7 @@ export default function App() {
   const [tab, setTab] = useState<TabKey>("fleet");
   const [ok, setOk] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
 
   useEffect(() => {
     async function checkHealth() {
@@ -73,6 +75,16 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  const handleContextSwitch = async (name: string) => {
+    const res = await runForgeos(["config", "use-context", name]);
+    if (res.ok) {
+      toast.success(`Switched to context: ${name}`);
+      window.location.reload();
+    } else {
+      toast.error(`Failed to switch context: ${res.stderr}`);
+    }
+  };
 
   return (
     <div className="h-full flex flex-col bg-bg text-text font-mono">
@@ -127,7 +139,7 @@ export default function App() {
 
       {/* Content */}
       <main className="flex-1 overflow-auto p-4">
-        <TabContent tab={tab} />
+        <TabContent tab={tab} onSelectAgent={setSelectedAgentId} />
       </main>
 
       {/* Bottom bar (TODO: polish per spec north star) */}
@@ -136,21 +148,33 @@ export default function App() {
       <CommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
-        onPick={(k) => {
+        onNavigate={(k) => {
           setTab(k);
           setPaletteOpen(false);
         }}
+        onAgentSelect={(id) => {
+          setSelectedAgentId(id);
+          setPaletteOpen(false);
+        }}
+        onContextSwitch={handleContextSwitch}
       />
+
+      {selectedAgentId && (
+        <AgentDetailSheet
+          agentId={selectedAgentId}
+          onClose={() => setSelectedAgentId(null)}
+        />
+      )}
     </div>
   );
 }
 
-function TabContent({ tab }: { tab: TabKey }) {
+function TabContent({ tab, onSelectAgent }: { tab: TabKey; onSelectAgent: (id: string) => void }) {
   switch (tab) {
     case "fleet":
       return (
         <TabErrorBoundary name="Fleet">
-          <FleetTab />
+          <FleetTab onSelectAgent={onSelectAgent} />
         </TabErrorBoundary>
       );
     case "governance":

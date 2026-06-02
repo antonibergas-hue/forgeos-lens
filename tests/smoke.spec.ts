@@ -101,4 +101,32 @@ test.describe('smoke', () => {
     // Assert zero errors collected
     expect(errors).toEqual([]);
   });
+
+  test('command palette — open via shortcut, search agents, close via ESC', async ({ page }) => {
+    await page.goto('/');
+
+    // Open command palette with shortcut (manually dispatching event to be safe)
+    await page.evaluate(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { ctrlKey: true, key: 'k', bubbles: true }));
+    });
+
+    // Check that the palette input is visible
+    // The command palette input has a unique placeholder "Search agents, tabs, contexts..."
+    const input = page.locator('input[placeholder="Search agents, tabs, contexts..."]');
+    await expect(input).toBeVisible({ timeout: 10_000 });
+
+    // Type a search query for agent name "tester"
+    await input.fill('tester');
+
+    // The palette should show matching results
+    // We search for a button containing "tester" inside the dialog
+    const result = page.locator('[role="dialog"] button').filter({ hasText: 'tester' });
+    await expect(result).toBeVisible({ timeout: 10_000 });
+
+    // Close with Escape
+    await page.keyboard.press('Escape');
+
+    // Palette should be closed
+    await expect(input).not.toBeVisible({ timeout: 10_000 });
+  });
 });
