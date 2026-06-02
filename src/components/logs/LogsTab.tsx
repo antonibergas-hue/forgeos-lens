@@ -1,8 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useMemo } from "react";
+import { toast } from "sonner";
 import { useForgeos } from "../../hooks/useForgeos";
 import { Agent, LogEntry, ToolCallDetail } from "../../lib/types";
-import { startLogStream, LogStreamHandle } from "../../lib/logStream";
-import { useLogStore } from "../../store/logStore";
+import { startLogStream, LogStreamHandle, entryToString } from "../../lib/logStream";
+import { useLogStore, FILTERS } from "../../store/logStore";
 import { SkeletonBlock } from "../core/Skeleton";
 
 export function LogsTab() {
@@ -11,6 +12,10 @@ export function LogsTab() {
   const entries = useLogStore((s) => s.entries);
   const expanded = useLogStore((s) => s.expanded);
   const focusedIdx = useLogStore((s) => s.focusedIdx);
+  const filterKey = useLogStore((s) => s.filterKey);
+  const isPaused = useLogStore((s) => s.isPaused);
+  const isAtBottom = useLogStore((s) => s.isAtBottom);
+
   const setAgent = useLogStore((s) => s.setAgent);
   const append = useLogStore((s) => s.append);
   const clear = useLogStore((s) => s.clear);
@@ -18,6 +23,9 @@ export function LogsTab() {
   const expandUp = useLogStore((s) => s.expandUp);
   const expandDown = useLogStore((s) => s.expandDown);
   const toggleFocused = useLogStore((s) => s.toggleFocused);
+  const setFilter = useLogStore((s) => s.setFilter);
+  const setPaused = useLogStore((s) => s.setPaused);
+  const setIsAtBottom = useLogStore((s) => s.setIsAtBottom);
 
   const handleRef = useRef<LogStreamHandle | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -29,22 +37,51 @@ export function LogsTab() {
     }
   }
 
+  async function start(id: string) {
+    if (!id) return;
+    try {
+      handleRef.current = await startLogStream(id, (entry) => {
+        // If paused, we don't append. Simple implementation: kill/start on pause/resume.
+        append(entry);
+      });
+    } catch (e) {
+      append({
+        idx: Date.now(),
+        time: "",
+        kind: "failed",
+        msg: `[stream error] ${String(e)}`,
+      });
+    }
+  }
+
   async function select(id: string) {
     await stop();
     setAgent(id || null);
+    setPaused(false);
     if (id) {
-      try {
-        handleRef.current = await startLogStream(id, (entry) => append(entry));
-      } catch (e) {
-        append({
-          idx: Date.now(),
-          time: "",
-          kind: "failed",
-          msg: `[stream error] ${String(e)}`,
-        });
-      }
+      await start(id);
     }
   }
+
+  async function togglePause() {
+    if (isPaused) {
+      if (agentId) await start(agentId);
+      setPaused(false);
+      toast.info("Resumed log stream");
+    } else {
+      await stop();
+      setPaused(true);
+      toast.info("Paused log stream");
+    }
+  }
+
+  const copyToClipboard = () => {
+    const text = filteredEntries.map(entryToString).join("\n");
+    navigator.clipboard.writeText(text);
+    toast.success("Logs copied to clipboard", {
+      description: `${filteredEntries.length} lines copied.`
+    });
+  };
 
   useEffect(() => {
     const onUnload = () => { void stop(); };
@@ -67,14 +104,33 @@ export function LogsTab() {
     return () => window.removeEventListener("keydown", onKey);
   }, [expandUp, expandDown, toggleFocused]);
 
+  // Derived filtered entries
+  const filteredEntries = useMemo(() => {
+    const filter = FILTERS.find((f) => f.key === filterKey);
+    if (!filter || filter.kind.length === 0) return entries;
+    return entries.filter((e) => filter.kind.includes(e.kind));
+  }, [entries, filterKey]);
+
+  // Smart auto-scroll
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [entries]);
+    if (el && isAtBottom) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [entries, isAtBottom]);
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 10;
+    if (atBottom !== isAtBottom) {
+      setIsAtBottom(atBottom);
+    }
+  };
 
   return (
     <div className="text-[11px] h-full flex flex-col bg-bg">
-      <div className="flex items-center gap-2 mb-2 p-1">
+      <div className="flex items-center gap-2 mb-2 p-1 flex-wrap">
         {isLoading && !agents ? (
           <SkeletonBlock width="w-48" height="h-6" />
         ) : (
@@ -92,14 +148,51 @@ export function LogsTab() {
             ))}
           </select>
         )}
+
+        <div className="flex items-center gap-1 border-l border-border pl-2">
+          {FILTERS.map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={`px-2 py-0.5 rounded text-[10px] transition-colors ${
+                filterKey === f.key
+                  ? "bg-info/20 text-info border border-info/30"
+                  : "text-dim hover:text-text border border-transparent"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
         {agentId && (
-          <span className="inline-flex items-center gap-1 text-ok">
-            <span className="inline-block w-2 h-2 rounded-full bg-ok animate-pulse" />
-            following
+          <span className={`inline-flex items-center gap-1 ${isPaused ? "text-warn" : "text-ok"}`}>
+            <span className={`inline-block w-2 h-2 rounded-full ${isPaused ? "bg-warn" : "bg-ok animate-pulse"}`} />
+            {isPaused ? "paused" : "following"}
           </span>
         )}
+
         <div className="ml-auto flex items-center gap-2">
-          <span className="text-dim">↑/↓ nav · space expand</span>
+          <span className="text-[10px] text-dim mr-2 hidden lg:inline">
+            {filteredEntries.length} lines · ↑/↓ nav · space expand
+          </span>
+          {agentId && (
+            <button
+              onClick={togglePause}
+              className={`text-dim hover:text-text border border-border rounded px-2 py-0.5 transition-colors ${
+                isPaused ? "bg-warn/10 border-warn/30" : ""
+              }`}
+            >
+              {isPaused ? "Resume" : "Pause"}
+            </button>
+          )}
+          <button
+            onClick={copyToClipboard}
+            disabled={filteredEntries.length === 0}
+            className="text-dim hover:text-text border border-border rounded px-2 py-0.5 disabled:opacity-50"
+          >
+            Copy
+          </button>
           <button
             onClick={clear}
             className="text-dim hover:text-text border border-border rounded px-2 py-0.5"
@@ -111,15 +204,20 @@ export function LogsTab() {
 
       <div
         ref={scrollRef}
-        className="flex-1 overflow-auto bg-bg border border-border rounded-md font-mono leading-relaxed"
+        onScroll={handleScroll}
+        className="flex-1 overflow-auto bg-bg border border-border rounded-md font-mono leading-relaxed relative"
       >
-        {entries.length === 0 ? (
+        {filteredEntries.length === 0 ? (
           <div className="p-4 text-dim">
-            {agentId ? "Waiting for log output…" : "Pick an agent to stream its logs."}
+            {agentId
+              ? entries.length > 0
+                ? "No logs match the current filter."
+                : "Waiting for log output…"
+              : "Pick an agent to stream its logs."}
           </div>
         ) : (
           <div className="flex flex-col">
-            {entries.map((entry, i) => (
+            {filteredEntries.map((entry, i) => (
               <LogLine
                 key={entry.idx}
                 entry={entry}
@@ -129,6 +227,20 @@ export function LogsTab() {
               />
             ))}
           </div>
+        )}
+
+        {!isAtBottom && entries.length > 0 && (
+          <button
+            onClick={() => {
+              setIsAtBottom(true);
+              if (scrollRef.current) {
+                scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+              }
+            }}
+            className="absolute bottom-4 right-4 bg-surface/90 border border-border rounded px-2 py-1 text-info text-[10px] shadow-lg animate-in fade-in slide-in-from-bottom-2"
+          >
+            ↓ Resume auto-scroll
+          </button>
         )}
       </div>
     </div>
@@ -170,7 +282,7 @@ function LogLine({
       >
         <span className="text-[10px] text-dim w-12 shrink-0">{entry.time}</span>
         <span className={`w-16 shrink-0 font-bold ${color}`}>{entry.kind}</span>
-        <span className="flex-1 truncate text-text">{entry.msg}</span>
+        <span className="flex-1 truncate text-text whitespace-pre-wrap">{entry.msg}</span>
         {isTool && (
           <span className="text-dim group-hover:text-text transition-colors">
             {isExpanded ? "▼" : "▶"}
