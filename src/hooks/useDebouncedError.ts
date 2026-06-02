@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 
 /**
@@ -13,12 +13,12 @@ import { toast } from "sonner";
 export function useDebouncedError(debounceMs = 2_000) {
   const lastToastedAt = useRef(0);
 
-  const notify = (message: string) => {
+  const notify = useCallback((message: string) => {
     const now = Date.now();
     if (now - lastToastedAt.current < debounceMs) return;
     lastToastedAt.current = now;
     toast.error(message, { duration: 10_000 });
-  };
+  }, [debounceMs]);
 
   // Reset on unmount so a fresh mount starts with no stale timer
   useEffect(() => {

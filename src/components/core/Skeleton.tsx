@@ -8,22 +8,21 @@
 
 export function SkeletonRow({
   columns = 4,
-  height = "h-5",
 }: {
   columns?: number;
-  height?: string;
 }) {
   return (
-    <div className="flex gap-3 px-2 py-1">
+    <tr className="animate-pulse">
       {Array.from({ length: columns }).map((_, i) => (
-        <div
-          key={i}
-          className={`${height} rounded bg-surface/80 animate-pulse ${
-            i === 0 ? "w-16" : i === columns - 1 ? "w-14" : "flex-1"
-          }`}
-        />
+        <td key={i} className="py-2 px-3">
+          <div
+            className={`h-3 rounded bg-surface/80 ${
+              i === 0 ? "w-16" : i === columns - 1 ? "w-14" : "w-full"
+            }`}
+          />
+        </td>
       ))}
-    </div>
+    </tr>
   );
 }
 
