@@ -45,6 +45,34 @@ test.describe('smoke', () => {
     await expect(dialog.locator('h2')).toContainText('builder');
   });
 
+  test('pod shell tab — open shell, run command, assert output', async ({ page }) => {
+    await page.goto('/');
+
+    // 1. Open fleet sheet
+    await page.waitForSelector('tbody tr', { state: 'visible' });
+    await page.click('tbody tr:first-child');
+
+    // 2. Click "Shell" tab
+    const dialog = page.locator('[role="dialog"]');
+    await dialog.locator('[role="tab"] >> text="Shell"').click();
+
+    // 3. Type "ls" and press Enter
+    const input = dialog.locator('input[placeholder="Type a command..."]');
+    await expect(input).toBeVisible();
+    await input.fill('ls');
+    await input.press('Enter');
+
+    // 4. Assert output appears (mock fixture returns src\ndashboard\n...)
+    await expect(dialog.locator('pre').filter({ hasText: 'package.json' })).toBeVisible({ timeout: 10_000 });
+
+    // 5. Type "whoami" and press Enter
+    await input.fill('whoami');
+    await input.press('Enter');
+
+    // 6. Assert output appears (mock fixture returns forgeos-agent)
+    await expect(dialog.locator('pre').filter({ hasText: 'forgeos-agent' })).toBeVisible({ timeout: 10_000 });
+  });
+
   test('context switch — open context dropdown, pick second context, fleet re-renders', async ({ page }) => {
     await page.goto('/');
 

@@ -2,17 +2,19 @@ import { useState } from "react";
 import { useForgeos } from "../../hooks/useForgeos";
 import { AgentDetail, AgentRun, statusColor } from "../../lib/types";
 import { AgentChat } from "../AgentChat";
+import { PodShell } from "./PodShell";
 
-type DetailTab = "overview" | "runs" | "chat";
+type DetailTab = "overview" | "runs" | "chat" | "shell";
 
 const DETAIL_TABS: { key: DetailTab; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "runs", label: "Recent runs" },
   { key: "chat", label: "Chat" },
+  { key: "shell", label: "Shell" },
 ];
 
 // Right-hand slide-over showing an agent's detail with tabs.
-// Tabs: Overview (forgeos describe) + Recent runs + Chat (A2H session).
+// Tabs: Overview (forgeos describe) + Recent runs + Chat (A2H session) + Shell (Pod-shell).
 export function AgentDetailSheet({
   agentId,
   onClose,
@@ -82,6 +84,7 @@ export function AgentDetailSheet({
           )}
           {tab === "runs" && <RunsPanel agentId={agentId} />}
           {tab === "chat" && <AgentChat agentId={agentId} />}
+          {tab === "shell" && <PodShell agentId={agentId} />}
         </div>
       </aside>
     </div>

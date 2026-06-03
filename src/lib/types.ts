@@ -135,3 +135,31 @@ export interface ContextHealth {
   last_error: string | null;
   checked_at: string;
 }
+
+// ---- Pod Shell types (TODO #16) ----
+// Platform endpoint: POST /api/platform/agents/{agent_id}/shell
+// Body: { cmd, cwd?, timeout? }  —  Response: { ok, stdout, stderr, code, cwd }
+
+export interface PodShellRequest {
+  cmd: string;
+  cwd?: string;
+  timeout?: number;
+}
+
+export interface PodShellResponse {
+  ok: boolean;
+  stdout: string;
+  stderr: string;
+  code: number;
+  cwd: string;
+}
+
+// History line kept in the REPL pane
+export interface ShellHistoryEntry {
+  ts: string; // ISO timestamp
+  cmd: string;
+  cwd?: string;
+  stdout: string;
+  stderr: string;
+  code: number;
+}
