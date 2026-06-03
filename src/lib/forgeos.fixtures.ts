@@ -274,5 +274,56 @@ export const MOCK_FIXTURES: Record<string, () => Promise<ForgeosResult>> = {
       }
     ]),
     code: 0,
-  })
+  }),
+
+  // ---- Pod Shell Mock Fixtures (TODO #16) ----
+  // These are handled by hijacking fetch in the browser/mock context
+  // but let's add them here just in case they're called via runForgeos
+  // (though the spec says they use the HTTP endpoint directly)
 };
+
+/**
+ * Browser-only: intercept fetch() calls to the platform API when running
+ * in smoke-test/fixture mode.
+ */
+if (typeof window !== 'undefined' && !(window as any).__TAURI_INTERNALS__) {
+  const originalFetch = window.fetch;
+  window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : (input as Request).url;
+
+    if (url.includes('/api/platform/agents/') && url.endsWith('/shell')) {
+      const body = JSON.parse(init?.body as string);
+      const cmd = body.cmd;
+
+      if (cmd === 'ls') {
+        return new Response(JSON.stringify({
+          ok: true,
+          stdout: 'src\ndashboard\npackage.json\npnpm-lock.yaml\n',
+          stderr: '',
+          code: 0,
+          cwd: '/tmp/agent-workdir'
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      if (cmd === 'whoami') {
+        return new Response(JSON.stringify({
+          ok: true,
+          stdout: 'forgeos-agent\n',
+          stderr: '',
+          code: 0,
+          cwd: '/tmp/agent-workdir'
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      return new Response(JSON.stringify({
+        ok: false,
+        stdout: '',
+        stderr: `Command not found: ${cmd}`,
+        code: 127,
+        cwd: '/tmp/agent-workdir'
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    return originalFetch(input, init);
+  }) as any;
+}
