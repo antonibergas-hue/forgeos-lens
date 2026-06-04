@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { RefreshCw, Search, ChevronRight, ChevronDown, Activity, Globe, Wrench, AlertCircle } from "lucide-react";
+import { RefreshCw, Search, ChevronRight, ChevronDown, Activity, Globe, Wrench, AlertCircle, Info } from "lucide-react";
 import { useForgeos } from "../../hooks/useForgeos";
 import { McpServer, McpTool } from "../../lib/types";
 import { SkeletonRow } from "../core/Skeleton";
@@ -7,6 +7,11 @@ import { SkeletonRow } from "../core/Skeleton";
 // MCP tab: lists the Model Context Protocol servers configured on the platform.
 // Features: Expandable server rows showing tools, connection status details,
 // search/filter, and refresh.
+//
+// NOTE: forgeos v0.1.0 has no `mcp` subcommand (the v2 spec expects a
+// `GET /api/mcp/servers` backing that the CLI doesn't yet expose). When the
+// CLI reports the verb is missing we degrade to an informational empty state
+// rather than surfacing a raw error.
 export function McpTab() {
   const { data, error, isLoading, refetch } = useForgeos<McpServer[]>({
     args: ["mcp", "list", "--json"],
@@ -16,6 +21,8 @@ export function McpTab() {
   const [expandedServers, setExpandedServers] = useState<Set<string>>(new Set());
 
   const servers = data ?? [];
+  // "unrecognized subcommand 'mcp'" / "unexpected argument" → CLI has no backing.
+  const unsupported = !!error && /unrecognized subcommand|unexpected argument|not found/i.test(error);
 
   const toggleExpand = (name: string) => {
     const next = new Set(expandedServers);
@@ -95,6 +102,14 @@ export function McpTab() {
                   searchQuery={search}
                 />
               ))
+            ) : unsupported ? (
+              <tr>
+                <td colSpan={5} className="py-12 text-dim text-center">
+                  <Info className="w-5 h-5 mx-auto mb-2 text-info/70" />
+                  <div className="text-text">MCP server listing isn't available in this <code>forgeos</code> version.</div>
+                  <div className="text-[10px] mt-1">Requires a <code>forgeos mcp list</code> command (or <code>GET /api/mcp/servers</code>) the installed CLI doesn't expose.</div>
+                </td>
+              </tr>
             ) : (
               <tr>
                 <td colSpan={5} className="py-12 text-dim text-center italic">
@@ -106,7 +121,7 @@ export function McpTab() {
         </table>
       </div>
 
-      {error && (
+      {error && !unsupported && (
         <div className="mt-2 p-2 border border-danger/30 bg-danger/5 text-danger rounded flex items-start gap-2 animate-in fade-in slide-in-from-bottom-1">
           <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
           <div className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">

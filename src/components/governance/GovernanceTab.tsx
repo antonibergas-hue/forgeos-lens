@@ -1,17 +1,19 @@
 import { useState } from "react";
 import { useForgeos } from "../../hooks/useForgeos";
 import { runForgeos } from "../../lib/forgeos";
-import { Approval } from "../../lib/types";
+import { Approval, normalizeApproval } from "../../lib/types";
 import { SkeletonCard } from "../core/Skeleton";
 import { Check, X, Send, Clock, ShieldAlert } from "lucide-react";
 
 // Governance tab: pending human-in-the-loop requests from `forgeos approvals
-// list --json`, with a structured queue view for approve/deny and questions.
+// list` (the CLI emits JSON by default — there is no --json flag), with a
+// structured queue view for approve/deny and questions. The raw CLI shape
+// (title/timestamp/agent/category) is normalized to the UI Approval model.
 export function GovernanceTab() {
-  const { data, error, isLoading, refetch } = useForgeos<Approval[]>({
-    args: ["approvals", "list", "--json"],
+  const { data, error, isLoading, refetch } = useForgeos<unknown[]>({
+    args: ["approvals", "list"],
   });
-  const items = data ?? [];
+  const items: Approval[] = (data ?? []).map(normalizeApproval);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -23,7 +25,9 @@ export function GovernanceTab() {
   }
 
   const formatAge = (dateStr: string) => {
-    const mins = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
+    const t = new Date(dateStr).getTime();
+    if (!dateStr || Number.isNaN(t)) return "—";
+    const mins = Math.floor((Date.now() - t) / 60000);
     if (mins < 1) return "just now";
     if (mins < 60) return `${mins}m ago`;
     return `${Math.floor(mins / 60)}h ago`;
@@ -100,8 +104,14 @@ export function GovernanceTab() {
                     </div>
 
                     <div className="p-3">
-                      <p className="text-text text-sm mb-4 leading-relaxed">{it.question}</p>
-                      
+                      <p className="text-text text-sm mb-2 leading-relaxed">{it.question}</p>
+                      {it.run_id && (
+                        <p className="text-dim text-[10px] mb-3 font-mono">
+                          ⏸ blocks run <span className="text-bright">{it.run_id}</span>
+                          {it.tool ? <> · tool <span className="text-bright">{it.tool}</span></> : null}
+                        </p>
+                      )}
+
                       <div className="flex items-center gap-2">
                         {isBool ? (
                           <>

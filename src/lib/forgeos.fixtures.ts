@@ -182,8 +182,8 @@ export const MOCK_FIXTURES: Record<string, () => Promise<ForgeosResult>> = {
     code: 0,
   }),
 
-  // approvals list --json
-  'approvals list --json': async () => ({
+  // approvals list — the real CLI emits JSON by default (no --json flag).
+  'approvals list': async () => ({
     ok: true,
     stdout: JSON.stringify([
       {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { runForgeos } from "../../lib/forgeos";
+import { runForgeos, parseContextsTable } from "../../lib/forgeos";
 
 interface Ctx {
   name: string;
@@ -25,22 +25,8 @@ export function ContextSwitcher({ onSwitch }: { onSwitch?: (name: string) => voi
     const res = await runForgeos(["config", "get-contexts"]);
     if (!res.ok) return;
 
-    const list: Ctx[] = [];
-    let cur = "";
-    for (const raw of res.stdout.split("\n")) {
-      const trimmed = raw.trim();
-      if (!trimmed) continue;
-      if (trimmed.startsWith("CUR")) continue; // header
-      if (/^-+/.test(trimmed)) continue; // separator
-      // The "*" marker lives in the first column; a row without it is
-      // left-padded, so detect current from the raw (un-trimmed) line.
-      const isCurrent = raw.trimStart().startsWith("*");
-      const cols = trimmed.split(/\s+/);
-      const name = isCurrent ? cols[1] : cols[0];
-      if (!name) continue;
-      list.push({ name, current: isCurrent });
-      if (isCurrent) cur = name;
-    }
+    const list: Ctx[] = parseContextsTable(res.stdout);
+    const cur = list.find((c) => c.current)?.name ?? "";
 
     setContexts(list);
     setCurrent(cur || list[0]?.name || "");

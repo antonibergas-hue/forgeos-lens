@@ -47,17 +47,32 @@ export async function execPodShell(
   const { baseUrl } = await loadConfig();
   const url = `${baseUrl}/api/platform/agents/${encodeURIComponent(agentId)}/shell`;
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${configCache?.token || ""}`,
-    },
-    body: JSON.stringify(req),
-  });
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${configCache?.token || ""}`,
+      },
+      body: JSON.stringify(req),
+    });
+  } catch {
+    // Network-level failure (endpoint unreachable / CORS / DNS). The pod-shell
+    // needs a platform that exposes POST /api/platform/agents/<id>/shell;
+    // forgeos v0.1.0 deployments don't ship it.
+    throw new Error(
+      `Pod shell endpoint unreachable at ${url} — this requires platform shell support (POST /api/platform/agents/<id>/shell), which isn't available in this forgeos deployment.`
+    );
+  }
 
   if (!res.ok) {
     const errBody = await res.text().catch(() => "");
+    if (res.status === 404) {
+      throw new Error(
+        `Pod shell endpoint not found (404) — this forgeos deployment doesn't expose POST /api/platform/agents/<id>/shell.`
+      );
+    }
     throw new Error(`podShell failed: ${res.status} ${errBody}`);
   }
 

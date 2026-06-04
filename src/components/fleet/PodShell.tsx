@@ -61,6 +61,7 @@ export function PodShell({ agentId }: { agentId: string }) {
         <div># forgeos-pod-shell v1.0</div>
         <div># non-interactive mode (one command per POST)</div>
         <div># agent: {agentId}</div>
+        <div className="text-warn/80"># requires platform shell endpoint (POST /api/platform/agents/&lt;id&gt;/shell)</div>
       </div>
 
       {/* History log */}
