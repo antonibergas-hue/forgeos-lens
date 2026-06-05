@@ -19,7 +19,8 @@ async function loadConfig(): Promise<ShellConfig> {
   if (configCache) return configCache;
 
   try {
-    const cmd = Command.create("cat", ["~/.forgeos/config.yaml"]);
+    // Allowlisted `forgeos` CLI (not `cat`, forbidden by the Tauri shell scope).
+    const cmd = Command.create("forgeos", ["config", "view"]);
     const output = await cmd.execute();
     const text = output.stdout;
 

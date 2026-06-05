@@ -33,7 +33,10 @@ async function loadConfig(): Promise<A2HConfig> {
   // multi-context: resolve the ACTIVE context's `server` + `token`, not a
   // bare `base_url:` (which doesn't exist) or the first `token:` in the file.
   try {
-    const cmd = Command.create("cat", ["~/.forgeos/config.yaml"]);
+    // Use the allowlisted `forgeos` CLI (not `cat`, which the Tauri shell
+    // scope forbids and wouldn't expand `~`). `config view` prints the full
+    // config.yaml incl. current_context + per-context server/token.
+    const cmd = Command.create("forgeos", ["config", "view"]);
     const output = await cmd.execute();
     const text = output.stdout;
 
