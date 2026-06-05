@@ -29,17 +29,39 @@ let configCache: A2HConfig | null = null;
 async function loadConfig(): Promise<A2HConfig> {
   if (configCache) return configCache;
 
-  // Read ~/.forgeos/config.yaml via Tauri shell (browser-safe)
+  // Read ~/.forgeos/config.yaml via Tauri shell (browser-safe). The file is
+  // multi-context: resolve the ACTIVE context's `server` + `token`, not a
+  // bare `base_url:` (which doesn't exist) or the first `token:` in the file.
   try {
     const cmd = Command.create("cat", ["~/.forgeos/config.yaml"]);
     const output = await cmd.execute();
+    const text = output.stdout;
 
-    const tokenMatch = output.stdout.match(/token:\s*["']?([^"'\s]+)/);
-    const baseMatch = output.stdout.match(/base_url:\s*["']?([^"'\s]+)/);
+    const ctxName = text.match(/^current_context:\s*["']?([^"'\s]+)/m)?.[1];
+    let server = "";
+    let token = "";
+    if (ctxName) {
+      let inCtx = false;
+      for (const line of text.split("\n")) {
+        const head = line.match(/^\s{2}(\S+):\s*$/); // "  <ctxname>:"
+        if (head) {
+          inCtx = head[1] === ctxName;
+          continue;
+        }
+        if (inCtx) {
+          const s = line.match(/^\s{3,}server:\s*["']?([^"'\s]+)/);
+          if (s) server = s[1];
+          const t = line.match(/^\s{3,}token:\s*["']?([^"'\s]+)/);
+          if (t) token = t[1];
+        }
+      }
+    }
+    // Fall back to any server:/base_url: if the context block wasn't found.
+    if (!server) server = text.match(/(?:server|base_url):\s*["']?([^"'\s]+)/)?.[1] || "";
 
     configCache = {
-      token: tokenMatch?.[1] || "",
-      baseUrl: baseMatch?.[1] || "http://localhost:8080",
+      token: token || text.match(/token:\s*["']?([^"'\s]+)/)?.[1] || "",
+      baseUrl: server || "http://localhost:8080",
     };
     return configCache;
   } catch {
