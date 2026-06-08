@@ -36,6 +36,7 @@ export const statusColor = (s?: string): string => {
     case "failed":
       return "bg-danger";
     case "scheduled":
+    case "paused":
       return "bg-warn";
     default:
       return "bg-dim";
@@ -72,13 +73,18 @@ export interface LogEntry {
 export interface AgentRun {
   run_id: string;
   agent_id: string;
-  status: "completed" | "failed" | "running" | "cancelled";
+  // "paused" = parked on a human-approval gate (runtime-v2 durable suspend).
+  status: "completed" | "failed" | "running" | "cancelled" | "paused";
   started_at: string;
   duration_ms: number;
   phase?: string;
   prompt_tokens?: number;
   completion_tokens?: number;
   error?: string;
+  // When paused: the approval request blocking this run + the gated tool.
+  paused_on_request_id?: string;
+  suspend_reason?: string;
+  paused_tool?: string;
 }
 
 // ---- Approval / A2H types ----
@@ -100,6 +106,46 @@ export interface Approval {
   options?: string[];
   // Human reply (after answer)
   reply?: string;
+  // Extra context surfaced by the real CLI (deadline/SLA approvals)
+  category?: string;
+  deadline?: string;
+  // Runtime-v2: which durable run/continuation this approval is blocking, and
+  // the gated tool. Empty for legacy approvals not tied to a run.
+  run_id?: string;
+  continuation_id?: string;
+  tool?: string;
+}
+
+// The real `forgeos approvals list` emits a different JSON shape than the v2
+// spec assumed (title/timestamp/agent/category vs question/created_at/
+// agent_name/request_type). Normalize either shape into the UI Approval model
+// so the queue renders against the installed CLI *and* the test fixtures.
+export function normalizeApproval(raw: unknown): Approval {
+  const r = (raw ?? {}) as Record<string, any>;
+  const risk = (["low", "medium", "high"].includes(r.risk) ? r.risk : "low") as ApprovalRisk;
+  const question =
+    r.question ??
+    [r.title, r.description].filter(Boolean).join(" — ") ??
+    "(no description)";
+  return {
+    id: String(r.id ?? r.request_id ?? ""),
+    agent_id: String(r.agent_id ?? r.agent ?? "unknown"),
+    agent_name: r.agent_name ?? (r.agent && r.agent !== "unknown" ? r.agent : undefined),
+    question: question || "(no description)",
+    // Real CLI approvals are approve/reject style; only the fixture/aspirational
+    // shape carries an explicit request_type + options.
+    request_type: (r.request_type ?? "approval") as ApprovalRequestType,
+    risk,
+    status: (r.status ?? "pending") as ApprovalStatus,
+    created_at: r.created_at ?? r.timestamp ?? "",
+    options: Array.isArray(r.options) ? r.options : undefined,
+    reply: r.reply,
+    category: r.category,
+    deadline: r.deadline,
+    run_id: r.run_id ?? r.continuation_id ?? undefined,
+    continuation_id: r.continuation_id ?? undefined,
+    tool: r.tool ?? undefined,
+  };
 }
 
 // ---- MCP server types ----

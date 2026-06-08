@@ -61,3 +61,32 @@ export async function runForgeos<T>(args: string[]): Promise<ForgeosResult<T>> {
 
   return { ok, stdout: output.stdout, stderr: output.stderr, code: output.code, parsed };
 }
+
+export interface ParsedContext {
+  name: string;
+  current: boolean;
+}
+
+// Parse the plain-text table emitted by `forgeos config get-contexts` (there is
+// no --json flag on this verb). Table shape:
+//   CUR     NAME        AUTH    SERVER
+//   ------  ----------  ------  ------------------------------
+//   *       cloud-run   bearer  https://…
+//           prod        bearer  https://…
+export function parseContextsTable(stdout: string): ParsedContext[] {
+  const list: ParsedContext[] = [];
+  for (const raw of stdout.split("\n")) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith("CUR")) continue; // header
+    if (/^-+/.test(trimmed)) continue; // separator
+    // The "*" marker lives in the first column; rows without it are
+    // left-padded, so detect "current" from the raw (un-trimmed) line.
+    const isCurrent = raw.trimStart().startsWith("*");
+    const cols = trimmed.split(/\s+/);
+    const name = isCurrent ? cols[1] : cols[0];
+    if (!name) continue;
+    list.push({ name, current: isCurrent });
+  }
+  return list;
+}

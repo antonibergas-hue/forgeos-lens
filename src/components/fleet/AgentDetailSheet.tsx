@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForgeos } from "../../hooks/useForgeos";
 import { AgentDetail, AgentRun, statusColor } from "../../lib/types";
+import { fetchRecentRuns } from "../../lib/runs";
 import { AgentChat } from "../AgentChat";
 import { PodShell } from "./PodShell";
 
@@ -155,13 +156,39 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 // ── Runs Panel ───────────────────────────────────────────────────────
 
 function RunsPanel({ agentId }: { agentId: string }) {
-  const { data, error, isLoading } = useForgeos<AgentRun[]>({
-    args: ["runs", agentId, "--json"],
-  });
+  // forgeos v0.1.0 has no `runs` verb — reconstruct run history from the
+  // activity log (`forgeos logs <id> --json`, run start/end events).
+  const [data, setData] = useState<AgentRun[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [supported, setSupported] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    setIsLoading(true);
+    fetchRecentRuns(agentId)
+      .then((r) => {
+        if (!alive) return;
+        setData(r.runs);
+        setSupported(r.supported);
+        setError(r.supported ? null : r.error ?? null);
+      })
+      .catch((e) => alive && setError(e.message ?? "Failed to load runs"))
+      .finally(() => alive && setIsLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [agentId]);
 
   if (isLoading) return <p className="text-dim">Loading runs…</p>;
+  if (!supported)
+    return (
+      <p className="text-dim">
+        Run history isn't available in this <code>forgeos</code> version (no run-log backing).
+      </p>
+    );
   if (error) return <p className="text-danger">{error}</p>;
-  if (!data || data.length === 0) return <p className="text-dim">No recent runs.</p>;
+  if (!data || data.length === 0) return <p className="text-dim">No recent runs recorded.</p>;
 
   return (
     <div className="space-y-3">
@@ -177,15 +204,23 @@ function RunsPanel({ agentId }: { agentId: string }) {
           {data.map((r) => (
             <tr key={r.run_id} className="group hover:bg-surface-light">
               <td className="py-2 text-dim">
-                {new Date(r.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {Number.isNaN(new Date(r.started_at).getTime())
+                  ? r.started_at || "—"
+                  : new Date(r.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </td>
               <td className="py-2">
                 <div className="flex items-center gap-1.5">
                   <span className={`inline-block w-1.5 h-1.5 rounded-full ${statusColor(r.status)}`} />
-                  <span className={r.status === 'failed' ? 'text-danger' : 'text-text'}>
-                    {r.status}
+                  <span className={r.status === 'failed' ? 'text-danger' : r.status === 'paused' ? 'text-warn' : 'text-text'}>
+                    {r.status === 'paused' ? '⏸ awaiting approval' : r.status}
                   </span>
                 </div>
+                {r.status === 'paused' && (r.paused_tool || r.paused_on_request_id) && (
+                  <div className="text-[10px] text-dim truncate max-w-[180px]">
+                    {r.paused_tool ? `tool ${r.paused_tool}` : ''}
+                    {r.paused_on_request_id ? ` · ${r.paused_on_request_id}` : ''}
+                  </div>
+                )}
                 {r.error && (
                   <div className="text-[10px] text-danger/80 truncate max-w-[180px]" title={r.error}>
                     {r.error}
@@ -203,7 +238,7 @@ function RunsPanel({ agentId }: { agentId: string }) {
       <div className="pt-2 border-t border-border/40">
         <div className="flex justify-between text-[10px] text-dim">
           <span>{data.length} runs loaded</span>
-          <span>forgeos describe {agentId.slice(0, 8)} --limit 20</span>
+          <span>derived from forgeos logs {agentId.slice(0, 8)} --json</span>
         </div>
       </div>
     </div>

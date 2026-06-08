@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { RefreshCw, Activity, CheckCircle2, AlertCircle, Clock } from "lucide-react";
-import { runForgeos } from "../../lib/forgeos";
+import { runForgeos, parseContextsTable } from "../../lib/forgeos";
 import { ContextHealth, ConnectionState } from "../../lib/types";
 import { SkeletonRow } from "../core/Skeleton";
 
@@ -9,14 +9,43 @@ interface ContextEntry {
   current: boolean;
 }
 
+// forgeos v0.1.0 `health` has no --context / --json: it always probes the
+// *active* context and emits JSON by default. So we can only truly probe the
+// current context; others are listed but flagged as not-probeable.
+const NOT_PROBEABLE = "Not probed — CLI v0.1.0 can only check the active context. Switch to it to probe.";
+
+// Build a ContextHealth from whatever `forgeos health` returns: the real shape
+// is { status: "ok", components: {...} }; the test fixtures return a ready-made
+// ContextHealth; a bare "ok" string is also accepted.
+function toContextHealth(
+  name: string,
+  parsed: any,
+  ok: boolean,
+  latencyMs: number,
+  stderr: string,
+): ContextHealth {
+  const checked_at = new Date().toISOString();
+  if (parsed && typeof parsed === "object" && "connection" in parsed) {
+    // Fixture already speaks ContextHealth — keep its values, refresh timestamp.
+    return { ...(parsed as ContextHealth), name, checked_at };
+  }
+  const healthy = ok && (parsed?.status ? parsed.status === "ok" : true);
+  return {
+    name,
+    version: parsed?.version ?? parsed?.components?.version ?? "—",
+    connection: healthy ? "connected" : "disconnected",
+    latency_ms: healthy ? Math.round(latencyMs) : null,
+    last_error: healthy ? null : stderr || "Health probe failed",
+    checked_at,
+  };
+}
+
 /**
  * ClusterTab — CONTEXT-HEALTH detail panel.
  *
- * Lists all contexts from `forgeos config get-contexts --json` and probes
- * each one's health via `forgeos health --context <name> --json`.
- *
- * Features: per-context latency, version, connection state, last-error,
- * and manual refresh.
+ * Lists all contexts from `forgeos config get-contexts` (a plain-text table)
+ * and probes the active context via `forgeos health`. The installed CLI cannot
+ * target a non-active context, so those rows show as "not probed".
  */
 export function ClusterTab() {
   const [contexts, setContexts] = useState<ContextEntry[]>([]);
@@ -24,32 +53,38 @@ export function ClusterTab() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState<string | null>(null);
 
-  const probeHealth = useCallback(async (name: string) => {
+  const probeHealth = useCallback(async (name: string, isCurrent: boolean) => {
     setRefreshing(name);
+    if (!isCurrent) {
+      // The CLI has no per-context flag; don't fake a probe of an inactive one.
+      setHealthMap((prev) => ({
+        ...prev,
+        [name]: {
+          name,
+          version: "—",
+          connection: "unknown",
+          latency_ms: null,
+          last_error: NOT_PROBEABLE,
+          checked_at: new Date().toISOString(),
+        },
+      }));
+      setRefreshing(null);
+      return;
+    }
+    const started = performance.now();
     try {
-      const res = await runForgeos<ContextHealth>(["health", "--context", name, "--json"]);
-      if (res.ok && res.parsed) {
-        setHealthMap((prev) => ({ ...prev, [name]: res.parsed! }));
-      } else {
-        // Fallback for failed health check
-        setHealthMap((prev) => ({
-          ...prev,
-          [name]: {
-            name,
-            version: "unknown",
-            connection: "disconnected",
-            latency_ms: null,
-            last_error: res.stderr || "Probing failed",
-            checked_at: new Date().toISOString(),
-          },
-        }));
-      }
+      const res = await runForgeos<any>(["health"]);
+      const latency = performance.now() - started;
+      setHealthMap((prev) => ({
+        ...prev,
+        [name]: toContextHealth(name, res.parsed, res.ok, latency, res.stderr),
+      }));
     } catch (e: any) {
       setHealthMap((prev) => ({
         ...prev,
         [name]: {
           name,
-          version: "unknown",
+          version: "—",
           connection: "disconnected",
           latency_ms: null,
           last_error: e.message || "Unknown error",
@@ -63,11 +98,11 @@ export function ClusterTab() {
 
   const loadContexts = useCallback(async () => {
     setLoading(true);
-    const res = await runForgeos<ContextEntry[]>(["config", "get-contexts", "--json"]);
-    if (res.ok && Array.isArray(res.parsed)) {
-      setContexts(res.parsed);
-      // Probe all contexts
-      await Promise.all(res.parsed.map((c) => probeHealth(c.name)));
+    const res = await runForgeos(["config", "get-contexts"]);
+    if (res.ok) {
+      const parsed = parseContextsTable(res.stdout);
+      setContexts(parsed);
+      await Promise.all(parsed.map((c) => probeHealth(c.name, c.current)));
     }
     setLoading(false);
   }, [probeHealth]);
@@ -166,7 +201,7 @@ export function ClusterTab() {
                     </td>
                     <td className="py-2 px-3">
                       <button
-                        onClick={() => probeHealth(c.name)}
+                        onClick={() => probeHealth(c.name, c.current)}
                         className="p-1 hover:text-bright text-dim transition-colors"
                         title="Refresh context"
                       >
@@ -184,8 +219,10 @@ export function ClusterTab() {
       <div className="mt-4 p-3 bg-surface border border-border rounded">
         <h3 className="text-bright font-semibold mb-2">CLI Integration Note</h3>
         <p className="text-dim leading-relaxed">
-          The Cluster health view requires <code>forgeos health --context &lt;name&gt; --json</code> support.
-          If this flag is missing in your CLI version, results may fall back to the current context or show as disconnected.
+          <code>forgeos health</code> (v0.1.0) probes only the <span className="text-text">active</span> context
+          and has no <code>--context</code> flag, so only the current context shows live latency/status.
+          Other contexts are listed but marked <span className="text-text">unknown</span> until you switch to them.
+          Per-context probing needs a <code>forgeos health --context &lt;name&gt;</code> CLI addition.
         </p>
       </div>
     </div>
@@ -219,7 +256,7 @@ function StatusIndicator({ state }: { state: ConnectionState }) {
       return (
         <span className="flex items-center gap-1.5 text-dim bg-dim/10 px-2 py-0.5 rounded-full border border-dim/30">
           <Clock className="w-3 h-3" />
-          <span className="uppercase text-[9px] font-bold">Probing</span>
+          <span className="uppercase text-[9px] font-bold">Unknown</span>
         </span>
       );
   }
